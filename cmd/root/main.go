@@ -1,6 +1,6 @@
 package main
 
-import "go-boilerplate/internal/root"
+import "cloud/internal/root"
 
 func main() {
 	fx := root.NewApp()

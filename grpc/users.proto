@@ -1,0 +1,36 @@
+syntax = "proto3";
+package users;
+
+option go_package = "users/";
+
+service User {
+  rpc Get(GetUserRequest) returns (GetUserResponse);
+  rpc Authorize(AuthorizeUserRequest) returns (AuthorizeUserResponse);
+}
+
+message AuthorizeUserRequest {
+  string token = 1;
+}
+
+message AuthorizeUserResponse {
+  int64 id = 1;
+  string uuid = 2;
+  string name = 3;
+  string email = 4;
+  string avatar = 6;
+  string updated_at = 10;
+}
+
+message GetUserRequest {
+  string uuid = 1;
+}
+
+message GetUserResponse {
+  int64 id = 1;
+  string uuid = 2;
+  string name = 3;
+  string email = 4;
+  string avatar = 6;
+  string created_at = 9;
+  string updated_at = 10;
+}

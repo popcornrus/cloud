@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"cloud/external/response"
+	request "cloud/internal/root/http/request/users"
+	"cloud/internal/root/model"
+	"cloud/internal/root/service/user_service"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
-	"go-boilerplate/external/response"
-	request "go-boilerplate/internal/root/http/request/users"
-	"go-boilerplate/internal/root/model"
-	"go-boilerplate/internal/root/service/user_service"
 	"log/slog"
 	"net/http"
 )
@@ -209,8 +209,8 @@ func (h *UserHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 		log.Error("failed to sign in", err)
 
 		response.Respond(w, response.Response{
-			Status:  http.StatusInternalServerError,
-			Message: "internal server error",
+			Status:  http.StatusUnauthorized,
+			Message: err.Error(),
 		})
 
 		return

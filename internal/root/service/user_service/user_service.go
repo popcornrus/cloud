@@ -1,15 +1,15 @@
 package user_service
 
 import (
+	request "cloud/internal/root/http/request/users"
+	"cloud/internal/root/model"
+	"cloud/internal/root/repository"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
-	request "go-boilerplate/internal/root/http/request/users"
-	"go-boilerplate/internal/root/model"
-	"go-boilerplate/internal/root/repository"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
 	"time"
@@ -26,7 +26,8 @@ type UserServiceInterface interface {
 	Update(context.Context, *model.User, request.UpdateRequest) error
 	SignUp(context.Context, request.SignUpRequest) (*string, error)
 	SignIn(context.Context, request.SignInRequest) (*string, error)
-	FindUserByEmail(ctx context.Context, email string) (*model.User, error)
+	FindUserByUUID(context.Context, string) (*model.User, error)
+	FindUserByEmail(context.Context, string) (*model.User, error)
 }
 
 func NewUserService(
@@ -62,6 +63,22 @@ func (s *UserService) Update(ctx context.Context, user *model.User, request requ
 	s.cache.Set(user.Token, *user, time.Hour*24)
 
 	return nil
+}
+
+func (s *UserService) FindUserByUUID(ctx context.Context, uuid string) (*model.User, error) {
+	const op = "UserService.FindUserByUUID"
+
+	log := s.log.With(
+		slog.String("op", op),
+	)
+
+	entity, err := s.userRepo.FindUserByUUID(ctx, uuid)
+	if err != nil {
+		log.Error("failed to find user", err)
+		return nil, err
+	}
+
+	return &entity, nil
 }
 
 func (s *UserService) FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
@@ -113,7 +130,7 @@ func (s *UserService) SignUp(ctx context.Context, request request.SignUpRequest)
 	token := _hash(fmt.Sprintf("%s|%s", entity.UUID, time.Now()))
 	entity.Token = token
 
-	s.cache.Set(token, entity, time.Hour*24)
+	s.cache.Set(token, *entity, time.Hour*24)
 
 	return &token, nil
 }
@@ -128,12 +145,12 @@ func (s *UserService) SignIn(ctx context.Context, request request.SignInRequest)
 	entity, err := s.userRepo.FindUserByEmail(ctx, request.Email)
 	if err != nil {
 		log.Error("failed to find user", err)
-		return nil, err
+		return nil, errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(entity.Password), []byte(request.Password)); err != nil {
-		log.Error("invalid password")
-		return nil, err
+		log.Error("invalid password", err)
+		return nil, errors.New("invalid credentials")
 	}
 
 	token := _hash(fmt.Sprintf("%s|%s", entity.UUID, time.Now()))

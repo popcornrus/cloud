@@ -1,10 +1,10 @@
 package config
 
 import (
+	"cloud/external/logger/sl"
 	"fmt"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/joho/godotenv"
-	"go-boilerplate/external/logger/sl"
 	ucfg "go.uber.org/config"
 	"go.uber.org/fx"
 	"log/slog"
@@ -21,11 +21,12 @@ type (
 	}
 
 	Config struct {
-		Env        string `yaml:"env"`
-		HTTPServer `yaml:"http_server"`
-		DB         `yaml:"db"`
-		ENVState   `yaml:"env_state"`
-		MongoDB    `yaml:"mongodb"`
+		Env            string `yaml:"env"`
+		HTTPServer     `yaml:"http_server"`
+		ExplorerServer `yaml:"explorer_server"`
+		DB             `yaml:"db"`
+		ENVState       `yaml:"env_state"`
+		MongoDB        `yaml:"mongodb"`
 	}
 
 	ENVState struct {
@@ -36,6 +37,12 @@ type (
 
 	HTTPServer struct {
 		Address     string        `yaml:"address" env-default:"localhost:8080"`
+		Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
+		IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	}
+
+	ExplorerServer struct {
+		Address     string        `yaml:"address" env-default:"localhost:32001"`
 		Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
 		IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
 	}

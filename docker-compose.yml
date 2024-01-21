@@ -1,5 +1,31 @@
 version: "3.9"
 services:
+  proxy:
+    container_name: proxy
+    image: nginx:latest
+    ports:
+      - "32529:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./storage/logs/nginx:/var/log/nginx
+    depends_on:
+      - "backend"
+      - "websocket"
+    networks:
+      - go-network
+
+  websocket:
+    container_name: websocket
+    build:
+      context: .
+      dockerfile: docker/ws/Dockerfile
+    restart: always
+    volumes:
+      - ./:/app
+    networks:
+      - go-network
+
   backend:
     container_name: backend
     build:
@@ -17,6 +43,9 @@ services:
       - ROOT_PATH=/app
     volumes:
       - ./:/app
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - go-network
 

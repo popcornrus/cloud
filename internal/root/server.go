@@ -1,10 +1,10 @@
 package root
 
 import (
+	"cloud/external/config"
+	"cloud/external/logger/sl"
 	"context"
 	"github.com/go-chi/chi/v5"
-	"go-boilerplate/external/config"
-	"go-boilerplate/external/logger/sl"
 	"go.uber.org/fx"
 	"log/slog"
 	"net/http"

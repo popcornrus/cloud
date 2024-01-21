@@ -1,8 +1,8 @@
 package root
 
 import (
-	"go-boilerplate/external/config"
-	"go-boilerplate/external/logger/handler/slogpretty"
+	"cloud/external/config"
+	"cloud/external/logger/handler/slogpretty"
 	"log/slog"
 	"os"
 )

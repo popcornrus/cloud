@@ -25,5 +25,5 @@ MYSQL_PASSWORD=root
 - `make docker` or `make` - build and up project stack
 
 ## Documentation for creating newest data in project
-- [Enum](https://github.com/popcornrus/go-boilerplate/issues/1)
-- [Migrations](https://github.com/popcornrus/go-boilerplate/issues/2)
+- [Enum](https://github.com/popcornrus/cloud/issues/1)
+- [Migrations](https://github.com/popcornrus/cloud/issues/2)

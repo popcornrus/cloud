@@ -1,10 +1,10 @@
 package db
 
 import (
+	"cloud/external/config"
 	"context"
 	"database/sql"
 	"fmt"
-	"go-boilerplate/external/config"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/fx"

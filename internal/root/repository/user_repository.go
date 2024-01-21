@@ -1,12 +1,12 @@
 package repository
 
 import (
+	"cloud/external/db"
+	"cloud/internal/root/model"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"go-boilerplate/external/db"
-	"go-boilerplate/internal/root/model"
 	"time"
 )
 

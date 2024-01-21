@@ -1,7 +1,7 @@
 package service
 
 import (
-	"go-boilerplate/internal/root/service/user_service"
+	"cloud/internal/root/service/user_service"
 	"go.uber.org/fx"
 )
 

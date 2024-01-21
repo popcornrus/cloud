@@ -1,14 +1,15 @@
 package root
 
 import (
+	"cloud/external/config"
+	"cloud/external/db"
+	"cloud/grpc/users"
+	"cloud/internal/root/http/handler"
+	"cloud/internal/root/http/middleware"
+	"cloud/internal/root/repository"
+	"cloud/internal/root/service"
 	"github.com/go-playground/validator/v10"
 	"github.com/patrickmn/go-cache"
-	"go-boilerplate/external/config"
-	"go-boilerplate/external/db"
-	"go-boilerplate/internal/root/http/handler"
-	"go-boilerplate/internal/root/http/middleware"
-	"go-boilerplate/internal/root/repository"
-	"go-boilerplate/internal/root/service"
 	"go.uber.org/fx"
 )
 
@@ -27,8 +28,10 @@ func NewApp() *fx.App {
 			NewCache,
 			NewLogger,
 			NewRouter,
+			users.NewUserGRPC,
 			NewServer,
 		),
+		fx.Invoke(users.RunUserGRPCServer),
 		fx.Invoke(RunServer),
 	)
 }

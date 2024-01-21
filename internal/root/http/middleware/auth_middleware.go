@@ -1,11 +1,11 @@
 package middleware
 
 import (
+	"cloud/external/response"
+	"cloud/internal/root/model"
 	"context"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/patrickmn/go-cache"
-	"go-boilerplate/external/response"
-	"go-boilerplate/internal/root/model"
 	"log/slog"
 	"net/http"
 	"strings"

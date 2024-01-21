@@ -14,6 +14,14 @@ build:
 	@chmod +x "$(ROOT_PATH)/cmd/$(APP_NAME)/$(APP_NAME)"
 	@mv "$(ROOT_PATH)/cmd/$(APP_NAME)/$(APP_NAME)" "$(ROOT_PATH)/tmp/$(APP_NAME)"
 
+ws:
+	@echo "Building ws..."
+	@cd "$(ROOT_PATH)/cmd/ws" && go build -buildvcs=false -o "ws"
+	@chmod +x "$(ROOT_PATH)/cmd/ws/ws"
+	@mv "$(ROOT_PATH)/cmd/ws/ws" "$(ROOT_PATH)/tmp/ws"
+	@echo "ws built."
+	@bash -c "$(ROOT_PATH)/tmp/ws"
+
 check-network:
 	@echo "Checking if the network exists..."
 	@docker network inspect $(DOCKER_NETWORK) > /dev/null 2>&1 || (echo "Network does not exist. Please create it." && docker network create $(DOCKER_NETWORK))
