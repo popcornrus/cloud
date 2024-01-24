@@ -33,28 +33,33 @@ type FileService struct {
 	cache    *cache.Cache
 	mu       sync.Mutex
 	fileRepo repository.FileRepositoryInterface
+
+	ws *ws.WebSocketClient
 }
 
 type FileServiceInterface interface {
 	List(context.Context, *users.AuthorizeUserResponse) ([]*model.File, error)
+	FindByUUID(context.Context, string) (*model.File, error)
 	Preview(_struct.PreviewProcessing, *model.File) (image.Image, error)
 	Update(context.Context, *model.File, files.UpdateRequest) error
 	Prepare(context.Context, files.PrepareRequest) (*_struct.PrepareResult, error)
 	Upload(context.Context, string, *model.File, multipart.File) error
-	FindByUUID(context.Context, string) (*model.File, error)
+	Delete(context.Context, *model.File) error
 
-	CollectFile(*model.File) error
+	CollectFile(context.Context, *model.File) error
 }
 
 func NewFileService(
 	log *slog.Logger,
 	fr repository.FileRepositoryInterface,
 	cache *cache.Cache,
+	ws *ws.WebSocketClient,
 ) *FileService {
 	return &FileService{
 		log:      log,
 		fileRepo: fr,
 		cache:    cache,
+		ws:       ws,
 	}
 }
 
@@ -109,7 +114,7 @@ func (fs *FileService) Preview(proc _struct.PreviewProcessing, file *model.File)
 	}
 
 	cacheHash := _hash(fmt.Sprintf("%s-%s-%s", file.Hash, proc.Width, proc.Height))
-	cachePath := fmt.Sprintf("%s/%s/.cache/%s", os.Getenv("SRV_PATH"), file.Path, cacheHash)
+	cachePath := fmt.Sprintf("%s/%s/.cache/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash, cacheHash)
 	cacheFile := fmt.Sprintf("%s/%s", cachePath, cacheHash)
 
 	if _, err := os.Stat(cacheFile); err == nil {
@@ -196,6 +201,15 @@ func (fs *FileService) Prepare(ctx context.Context, req files.PrepareRequest) (*
 
 	fs.cache.Set(fmt.Sprintf("file-%s", file.UUID), file, 5*time.Minute)
 
+	ws.SendEvent(fs.ws, ws.Socket{
+		Channel: fmt.Sprintf("files.%s", user.Uuid),
+		Event:   "send:file:created",
+		Data: map[string]any{
+			"uuid":  file.UUID,
+			"state": file.State,
+		},
+	})
+
 	return &_struct.PrepareResult{
 		Url:       fmt.Sprintf("/%s/upload", file.UUID),
 		ChunkSize: ChunkSize,
@@ -255,21 +269,76 @@ func (fs *FileService) Upload(
 		}
 
 		user := ctx.Value("user").(*users.AuthorizeUserResponse)
+		ws.SendEvent(fs.ws, ws.Socket{
+			Channel: fmt.Sprintf("files.%s", user.Uuid),
+			Event:   "send:file:update",
+			Data: map[string]any{
+				"uuid":  file.UUID,
+				"state": file.State,
+			},
+		})
 
-		go func() {
-			err := fs.CollectFile(file)
+		go func(ctx context.Context, file *model.File) {
+			err := fs.CollectFile(ctx, file)
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
-
-			wss := ws.GetWebsocketConnection()
-			wss.ConfigStr = fmt.Sprintf("%s:%s", os.Getenv("WEBSOCKET_HOST"), os.Getenv("WEBSOCKET_PORT"))
-			wss.Send("files."+user.Uuid, "file.update", map[string]interface{}{
-				"uuid": file.UUID,
-			})
-		}()
+		}(ctx, file)
 	}
+
+	return nil
+}
+
+func (fs *FileService) Delete(ctx context.Context, file *model.File) error {
+	const op = "FileService.Delete"
+
+	log := fs.log.With(
+		slog.String("op", op),
+	)
+
+	if err := fs.fileRepo.Delete(ctx, file); err != nil {
+		log.Error("failed to delete file", slog.Any("err", err))
+		return err
+	}
+
+	go func() {
+		filePath := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+		if _, err := os.Stat(filePath); err == nil {
+			if err := os.Remove(filePath); err != nil {
+				log.Error("failed to remove file", slog.Any("err", err))
+				return
+			}
+		}
+
+		previewPath := fmt.Sprintf("%s/%s/.preview", os.Getenv("SRV_PATH"), file.Path)
+		previewFile := fmt.Sprintf("%s/%s.jpg", previewPath, file.Hash)
+		if _, err := os.Stat(previewFile); err == nil {
+			if err := os.Remove(previewFile); err != nil {
+				log.Error("failed to remove preview file", slog.Any("err", err))
+				return
+			}
+		}
+
+		cachePath := fmt.Sprintf("%s/%s/.cache", os.Getenv("SRV_PATH"), file.Path)
+		cacheFile := fmt.Sprintf("%s/%s", cachePath, file.Hash)
+		if _, err := os.Stat(cacheFile); err == nil {
+			if err := os.RemoveAll(cacheFile); err != nil {
+				log.Error("failed to remove cache file", slog.Any("err", err))
+				return
+			}
+		}
+
+		if file.IsVideo() {
+			webmPath := fmt.Sprintf("%s/%s/%s.webm", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+			if _, err := os.Stat(webmPath); err == nil {
+				if err := os.Remove(webmPath); err != nil {
+					log.Error("failed to remove webm file", slog.Any("err", err))
+					return
+				}
+			}
+		}
+	}()
 
 	return nil
 }
@@ -291,7 +360,7 @@ func (fs *FileService) FindByUUID(ctx context.Context, uuid string) (*model.File
 	return file, nil
 }
 
-func (fs *FileService) CollectFile(file *model.File) error {
+func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error {
 	const op = "FileService.CollectFile"
 
 	log := fs.log.With(
@@ -345,23 +414,82 @@ func (fs *FileService) CollectFile(file *model.File) error {
 		}
 	}
 
-	file.Preview, err = fs.CreatePreview(file)
+	err = fs.fileRepo.RemoveFileChunks(context.Background(), file.ID)
+	if err != nil {
+		log.Error("failed to remove file chunks", slog.Any("err", err))
+		return err
+	}
+
+	file.Preview, err = fs.CreatePreview(ctx, file)
 	if err != nil {
 		log.Error("failed to create preview", slog.Any("err", err))
 		return err
 	}
 
-	file.State = enum.FileStateDone
+	user := ctx.Value("user").(*users.AuthorizeUserResponse)
 
-	if err := fs.fileRepo.Update(context.Background(), file); err != nil {
-		log.Error("failed to update file", slog.Any("err", err))
-		return err
+	if file.IsVideo() {
+		go func() {
+			file.State = enum.FileStateConverting
+
+			if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+				log.Error("failed to update file", slog.Any("err", err))
+				return
+			}
+
+			ws.SendEvent(fs.ws, ws.Socket{
+				Channel: fmt.Sprintf("files.%s", user.Uuid),
+				Event:   "send:file:update",
+				Data: map[string]any{
+					"uuid":  file.UUID,
+					"state": file.State,
+				},
+			})
+
+			err := file.ConvertToWebM()
+			if err != nil {
+				log.Error("failed to convert to webm", slog.Any("err", err))
+				return
+			}
+
+			file.State = enum.FileStateDone
+
+			if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+				log.Error("failed to update file", slog.Any("err", err))
+				return
+			}
+
+			ws.SendEvent(fs.ws, ws.Socket{
+				Channel: fmt.Sprintf("files.%s", user.Uuid),
+				Event:   "send:file:update",
+				Data: map[string]any{
+					"uuid":  file.UUID,
+					"state": file.State,
+				},
+			})
+		}()
+	} else {
+		file.State = enum.FileStateDone
+
+		if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+			log.Error("failed to update file", slog.Any("err", err))
+			return err
+		}
+
+		ws.SendEvent(fs.ws, ws.Socket{
+			Channel: fmt.Sprintf("files.%s", user.Uuid),
+			Event:   "send:file:update",
+			Data: map[string]any{
+				"uuid":  file.UUID,
+				"state": file.State,
+			},
+		})
 	}
 
 	return nil
 }
 
-func (fs *FileService) CreatePreview(file *model.File) (*string, error) {
+func (fs *FileService) CreatePreview(ctx context.Context, file *model.File) (*string, error) {
 	const op = "FileService.CreatePreview"
 
 	log := fs.log.With(
@@ -384,6 +512,15 @@ func (fs *FileService) CreatePreview(file *model.File) (*string, error) {
 			return nil, err
 		}
 	}
+
+	user := ctx.Value("user").(*users.AuthorizeUserResponse)
+	ws.SendEvent(fs.ws, ws.Socket{
+		Channel: fmt.Sprintf("files.%s", user.Uuid),
+		Event:   "send:file:preview",
+		Data: map[string]any{
+			"uuid": file.UUID,
+		},
+	})
 
 	return previewImage, nil
 }
@@ -442,7 +579,12 @@ func (fs *FileService) FileIsUploaded(file *model.File) bool {
 	chunks, ok := uploadedChunks[file.UUID]
 
 	if !ok {
-		uploadedChunks[file.UUID] = int(file.Size / ChunkSize)
+		countOfChunks := int(file.Size / ChunkSize)
+		if countOfChunks == 0 {
+			return true
+		}
+
+		uploadedChunks[file.UUID] = countOfChunks
 		return false
 	}
 

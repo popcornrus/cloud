@@ -121,3 +121,22 @@ func (f *File) CreateVideoPreview() (*string, error) {
 
 	return &f.Hash, nil
 }
+
+type VideoProcessing interface {
+	ConvertToWebM() error
+	ConvertToMP4() error
+}
+
+func (f *File) ConvertToWebM() error {
+	file := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), f.Path, f.Hash)
+	webm := fmt.Sprintf("%s/%s/%s.webm", os.Getenv("SRV_PATH"), f.Path, f.Hash)
+
+	cmd := exec.Command("ffmpeg", "-i", file, "-c:v", "libvpx-vp9", "-c:a", "libopus", webm)
+	//cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error converting to webm: %v", err)
+	}
+
+	return nil
+}

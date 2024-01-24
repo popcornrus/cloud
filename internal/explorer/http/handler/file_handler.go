@@ -30,10 +30,12 @@ type (
 	FileHandlerInterface interface {
 		List(http.ResponseWriter, *http.Request)
 		Show(http.ResponseWriter, *http.Request)
+		Data(http.ResponseWriter, *http.Request)
 		Preview(http.ResponseWriter, *http.Request)
 		Create(http.ResponseWriter, *http.Request)
 		Update(http.ResponseWriter, *http.Request)
 		Prepare(http.ResponseWriter, *http.Request)
+		Download(http.ResponseWriter, *http.Request)
 		Upload(http.ResponseWriter, *http.Request)
 		Delete(http.ResponseWriter, *http.Request)
 	}
@@ -89,7 +91,12 @@ func (fh *FileHandler) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f, err := os.Open(fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash))
+	path := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+	if file.IsVideo() {
+		path = fmt.Sprintf("%s/%s/%s.webm", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+	}
+
+	f, err := os.Open(path)
 	if err != nil {
 		log.Error("failed to open video file", slog.Any("err", err))
 		http.Error(w, fmt.Sprintf("Error opening video file: %s", err), http.StatusInternalServerError)
@@ -99,7 +106,7 @@ func (fh *FileHandler) Show(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 
 	if file.IsVideo() {
-		w.Header().Set("Content-Type", file.Type)
+		w.Header().Set("Content-Type", "video/webm")
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size))
 		w.Header().Set("Accept-Ranges", "bytes")
 
@@ -119,6 +126,31 @@ func (fh *FileHandler) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeContent(w, r, file.Name, *file.UpdatedAt, f)
+}
+
+func (fh *FileHandler) Data(w http.ResponseWriter, r *http.Request) {
+	const op = "FileHandler.Data"
+
+	log := fh.log.With(
+		slog.String("op", op),
+	)
+
+	file, err := fh.fs.FindByUUID(r.Context(), chi.URLParam(r, "uuid"))
+	if err != nil {
+		log.Error("failed to find file by uuid", slog.Any("err", err))
+
+		response.Respond(w, response.Response{
+			Status: http.StatusNotFound,
+		})
+
+		return
+	}
+
+	response.Respond(w, response.Response{
+		Status:  http.StatusOK,
+		Message: "success",
+		Data:    file,
+	})
 }
 
 func (fh *FileHandler) Preview(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +173,7 @@ func (fh *FileHandler) Preview(w http.ResponseWriter, r *http.Request) {
 
 	if file.Preview == nil {
 		response.Respond(w, response.Response{
-			Status: http.StatusNotFound,
+			Status: http.StatusAccepted,
 		})
 
 		return
@@ -275,6 +307,51 @@ func (fh *FileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (fh *FileHandler) Download(w http.ResponseWriter, r *http.Request) {
+	const op = "FileHandler.Download"
+
+	log := fh.log.With(
+		slog.String("op", op),
+	)
+
+	file, err := fh.fs.FindByUUID(r.Context(), chi.URLParam(r, "uuid"))
+	if err != nil {
+		log.Error("failed to find file by uuid", slog.Any("err", err))
+
+		response.Respond(w, response.Response{
+			Status: http.StatusNotFound,
+		})
+
+		return
+	}
+
+	path := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+
+	f, err := os.Open(path)
+	if err != nil {
+		log.Error("failed to open video file", slog.Any("err", err))
+		http.Error(w, fmt.Sprintf("Error opening video file: %s", err), http.StatusInternalServerError)
+		return
+	}
+
+	defer f.Close()
+
+	if file.IsVideo() {
+		w.Header().Set("Content-Type", file.Type)
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size))
+		w.Header().Set("Accept-Ranges", "bytes")
+
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			log.Error("failed to seek file", slog.Any("err", err))
+			http.Error(w, fmt.Sprintf("Error seeking video file: %s", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.ServeContent(w, r, file.Name, *file.UpdatedAt, f)
+}
+
 func (fh *FileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	const op = "FileHandler.Upload"
 
@@ -339,5 +416,34 @@ func (fh *FileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (fh *FileHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	const op = "FileHandler.Delete"
 
+	log := fh.log.With(
+		slog.String("op", op),
+	)
+
+	file, err := fh.fs.FindByUUID(r.Context(), chi.URLParam(r, "uuid"))
+	if err != nil {
+		log.Error("failed to find file by uuid", slog.Any("err", err))
+
+		response.Respond(w, response.Response{
+			Status: http.StatusNotFound,
+		})
+
+		return
+	}
+
+	if err := fh.fs.Delete(r.Context(), file); err != nil {
+		log.Error("failed to delete file", slog.Any("err", err))
+
+		response.Respond(w, response.Response{
+			Status: http.StatusInternalServerError,
+		})
+
+		return
+	}
+
+	response.Respond(w, response.Response{
+		Status: http.StatusOK,
+	})
 }

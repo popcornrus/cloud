@@ -8,10 +8,14 @@
     import {onMount} from "svelte";
     import Preview from "$lib/components/explorer/files/Preview.svelte";
 
+
+    let wsSocket = null;
+
     let fileInstance = null,
         fileUUID = null,
         filePreview = null,
-        files = new Promise((resolve) => {
+        files = [],
+        filesLoaded = new Promise((resolve) => {
             resolve([]);
         });
 
@@ -35,10 +39,12 @@
         filePreview = fileInstance.findByUuid(fileElement.dataset.uuid);
     }
 
-    onMount(() => {
+    onMount(async () => {
         fileInstance = new File($authToken)
-        fileInstance.webSocket($user)
-        files = fileInstance.list();
+        wsSocket = fileInstance.webSocket($user)
+        filesLoaded = fileInstance.list();
+
+        files = await filesLoaded ?? [];
 
         document.addEventListener("click", () => {
             const contextMenu = document.querySelector("#file-context-menu");
@@ -46,14 +52,28 @@
                 contextMenu.style.display = "none";
             }
         });
+
+        wsSocket.addEventListener("message", async (e) => {
+            const data = JSON.parse(e.data);
+
+            if (data.event === "file:created") {
+                await fileInstance.data(data.data.uuid);
+                files = fileInstance.files;
+                return
+            }
+
+            if (data.event === "file:deleted") {
+                files = files.filter((file) => file.uuid !== data.data.uuid);
+            }
+        });
     })
 </script>
 
-{#await files}
+{#await filesLoaded}
     <p>Loading files...</p>
-{:then files}
+{:then ok}
     <div class="grid grid-cols-5 gap-4">
-        {#if files === null || files.length === 0}
+        {#if ok === null || ok.length === 0}
             <p>No files found.</p>
         {:else}
             {#each files as file}
@@ -61,6 +81,7 @@
                     oncontextmenu={openContextMenu}
                     onclick={openPreview}
                     file="{file}"
+                    process="{fileInstance}"
                 />
             {/each}
         {/if}

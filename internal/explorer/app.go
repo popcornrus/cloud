@@ -3,6 +3,7 @@ package explorer
 import (
 	"cloud/external/config"
 	"cloud/external/db"
+	"cloud/external/ws"
 	"cloud/internal/explorer/http/handler"
 	"cloud/internal/explorer/http/middleware"
 	"cloud/internal/explorer/repository"
@@ -28,8 +29,10 @@ func NewApp() *fx.App {
 			NewLogger,
 			NewRouter,
 			NewServer,
+			ws.NewWebSocketClient,
 		),
 		fx.Invoke(RunServer),
+		fx.Invoke(ws.RunWebSocketClient),
 	)
 }
 

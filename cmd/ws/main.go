@@ -72,32 +72,17 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				ws.Actions(c, conn, s)
 				continue
 			}
+
+			if s.Event[0:4] == "send" {
+				sendEvent(s)
+				continue
+			}
 		}
 	}
 }
 
-func sendEvent(w http.ResponseWriter, r *http.Request) {
-	type request struct {
-		Channel string      `json:"channel"`
-		Event   string      `json:"event"`
-		Data    interface{} `json:"data"`
-	}
-
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-
-	var p request
-	err := dec.Decode(&p)
-	if err != nil {
-		slog.Error("Error decoding request: ", err)
-		return
-	}
-
-	data := &ws.Socket{
-		Channel: p.Channel,
-		Event:   p.Event,
-		Data:    p.Data,
-	}
+func sendEvent(data *ws.Socket) {
+	data.Event = data.Event[5:]
 
 	subscribedUsers, found := c.Get(data.Channel)
 	if !found {
@@ -105,17 +90,18 @@ func sendEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Println(data)
+
 	for _, user := range subscribedUsers.([]*websocket.Conn) {
 		err := user.WriteJSON(data)
 		if err != nil {
-			return
+			continue
 		}
 	}
 }
 
 func main() {
 	http.HandleFunc("/ws/echo", handleConnection)
-	http.HandleFunc("/ws/event", sendEvent)
 
 	err := http.ListenAndServe(":5051", nil)
 	if err != nil {

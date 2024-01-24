@@ -35,7 +35,6 @@ func NewRouter(
 	}))
 
 	r.Route("/api/v1/explorer", func(ri chi.Router) {
-		ri.Head("/files/{uuid}", handlers.File.Show)
 		ri.Get("/files/{uuid}", handlers.File.Show)
 		ri.Get("/files/{uuid}/preview", handlers.File.Preview)
 
@@ -46,6 +45,9 @@ func NewRouter(
 
 			ru.Route("/{uuid}", func(ruf chi.Router) {
 				ruf.Patch("/", handlers.File.Update)
+				ruf.Delete("/", handlers.File.Delete)
+				ruf.Get("/download", handlers.File.Download)
+				ruf.Get("/data", handlers.File.Data)
 				ruf.Post("/upload", handlers.File.Upload)
 			})
 		})
