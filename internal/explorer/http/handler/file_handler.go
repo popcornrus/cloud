@@ -6,7 +6,7 @@ import (
 	"cloud/grpc/users"
 	"cloud/internal/explorer/enum"
 	"cloud/internal/explorer/http/request/files"
-	"cloud/internal/explorer/service/file_service"
+	"cloud/internal/explorer/service"
 	_struct "cloud/internal/explorer/struct"
 	"fmt"
 	"github.com/go-chi/chi/v5"
@@ -24,7 +24,7 @@ type (
 		log       *slog.Logger
 		validator *validator.Validate
 
-		fs file_service.FileServiceInterface
+		fs service.FileServiceInterface
 	}
 
 	FileHandlerInterface interface {
@@ -43,7 +43,7 @@ type (
 
 func NewFileHandler(
 	log *slog.Logger,
-	fs file_service.FileServiceInterface,
+	fs service.FileServiceInterface,
 ) *FileHandler {
 	return &FileHandler{
 		log:       log,
@@ -126,7 +126,7 @@ func (fh *FileHandler) Show(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size))
 		w.Header().Set("Accept-Ranges", "bytes")
 
-		start, _, _, err := file_service.ParseRange(r.Header.Get("Range"), enum.WrappedContentRange)
+		start, _, _, err := service.ParseRange(r.Header.Get("Range"), enum.WrappedContentRange)
 		if err != nil {
 			log.Error("failed to parse range", slog.Any("err", err))
 			http.Error(w, fmt.Sprintf("Error parsing range: %s", err), http.StatusInternalServerError)

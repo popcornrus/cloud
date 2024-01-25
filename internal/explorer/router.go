@@ -35,20 +35,28 @@ func NewRouter(
 	}))
 
 	r.Route("/api/v1/explorer", func(ri chi.Router) {
-		ri.Get("/files/{uuid}", handlers.File.Show)
-		ri.Get("/files/{uuid}/preview", handlers.File.Preview)
+		ri.Route("/files", func(fr chi.Router) {
+			fr.Get("/{uuid}", handlers.File.Show)
+			fr.Get("/{uuid}/preview", handlers.File.Preview)
 
-		ri.Route("/files", func(ru chi.Router) {
-			ru.Use(md.Auth.New())
-			ru.Get("/", handlers.File.List)
-			ru.Post("/prepare", handlers.File.Prepare)
+			fr.Route("/", func(ru chi.Router) {
+				ru.Use(md.Auth.New())
+				ru.Get("/", handlers.File.List)
+				ru.Post("/prepare", handlers.File.Prepare)
 
-			ru.Route("/{uuid}", func(ruf chi.Router) {
-				ruf.Patch("/", handlers.File.Update)
-				ruf.Delete("/", handlers.File.Delete)
-				ruf.Get("/download", handlers.File.Download)
-				ruf.Get("/data", handlers.File.Data)
-				ruf.Post("/upload", handlers.File.Upload)
+				ru.Route("/{uuid}", func(ruf chi.Router) {
+					ruf.Patch("/", handlers.File.Update)
+					ruf.Delete("/", handlers.File.Delete)
+					ruf.Get("/download", handlers.File.Download)
+					ruf.Get("/data", handlers.File.Data)
+					ruf.Post("/upload", handlers.File.Upload)
+				})
+			})
+		})
+
+		ri.Route("/folders", func(fr chi.Router) {
+			fr.Route("/", func(ru chi.Router) {
+				ru.Use(md.Auth.New())
 			})
 		})
 	})

@@ -5,14 +5,17 @@ import (
 )
 
 type Handlers struct {
-	File *FileHandler
+	File   *FileHandler
+	Folder *FolderHandler
 }
 
 func NewHandlers(
-	fh *FileHandler,
+	file *FileHandler,
+	folder *FolderHandler,
 ) *Handlers {
 	return &Handlers{
-		File: fh,
+		File:   file,
+		Folder: folder,
 	}
 }
 
@@ -22,6 +25,7 @@ func NewHandler() fx.Option {
 		fx.Options(),
 		fx.Provide(
 			NewFileHandler,
+			NewFolderHandler,
 			NewHandlers,
 		),
 	)

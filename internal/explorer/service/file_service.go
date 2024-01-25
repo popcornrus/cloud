@@ -1,4 +1,4 @@
-package file_service
+package service
 
 import (
 	"cloud/external/ws"
