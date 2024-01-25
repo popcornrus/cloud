@@ -18,6 +18,8 @@
         img.onerror = () => {
             loading = false;
             failed = true;
+
+            console.log("Failed to load image: " + src)
         };
     }
 </script>

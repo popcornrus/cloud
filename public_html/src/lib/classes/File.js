@@ -15,8 +15,12 @@ export class File {
         this.WebSocket = null;
     }
 
-    async list() {
-        await this.axios.get(``).then(({data}) => {
+    async list(search = null) {
+        await this.axios.get(``, {
+            params: {
+                search: search
+            }
+        }).then(({data}) => {
             this.files = data.data ?? [];
         })
 
@@ -42,7 +46,7 @@ export class File {
         return this.files.find(file => file.uuid === uuid);
     }
 
-    async download(uuid) {
+    async download(uuid, progressClosure = null) {
         const file = await this.findByUuid(uuid)
 
         const streamUrl = `${uuid}/download`;
@@ -65,8 +69,7 @@ export class File {
 
                 this.axios.get(streamUrl, {
                     responseType: "blob",
-                    onDownloadProgress: (progressEvent) => {
-                    }
+                    onDownloadProgress: (progress) => progressClosure(file, progress)
                 }).then(async response => {
                     const writable = await handle.createWritable();
                     await writable.write(response.data);
@@ -84,8 +87,7 @@ export class File {
 
         let blob = await this.axios.get(streamUrl, {
             responseType: "blob",
-            onDownloadProgress: (progressEvent) => {
-            }
+            onDownloadProgress: (progress) => progressClosure(file, progress)
         }).then(async response => {
             return response.data;
         }).catch(error => {

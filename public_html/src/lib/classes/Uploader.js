@@ -79,10 +79,12 @@ export class Uploader {
 
         this.files[fileIndex].state = 'processing';
 
-        let counter = 0;
+        let counterOfRequests = 0;
+        let chunkProgress = 0;
+
 
         for (let i = 0; i < chunks; i++) {
-            if (counter >= 75) {
+            if (counterOfRequests >= 75) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
@@ -100,13 +102,14 @@ export class Uploader {
                     'Content-Range': `bytes ${start}-${end - 1}/${file.size}`
                 }
             }).then(() => {
-                percent = Math.round((i + 1) / chunks * 100);
+                chunkProgress++;
+                percent = Math.round(chunkProgress / chunks * 100);
                 this.files[fileIndex].progress = percent;
 
-                counter--
+                counterOfRequests--
             })
 
-            counter++;
+            counterOfRequests++;
         }
 
         this.files[fileIndex].state = 'done';

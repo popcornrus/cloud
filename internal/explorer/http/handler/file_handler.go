@@ -60,6 +60,22 @@ func (fh *FileHandler) List(w http.ResponseWriter, r *http.Request) {
 	)
 
 	user := r.Context().Value("user").(*users.AuthorizeUserResponse)
+	if len(r.URL.Query().Get("search")) > 0 {
+		f, err := fh.fs.Search(r.Context(), user, r.URL.Query().Get("search"))
+		if err != nil {
+			log.Error("failed to search files", slog.Any("err", err))
+			return
+		}
+
+		response.Respond(w, response.Response{
+			Status:  http.StatusOK,
+			Message: "success",
+			Data:    f,
+		})
+
+		return
+	}
+
 	f, err := fh.fs.List(r.Context(), user)
 	if err != nil {
 		log.Error("failed to list files", slog.Any("err", err))

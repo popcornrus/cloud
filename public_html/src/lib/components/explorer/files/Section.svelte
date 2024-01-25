@@ -8,6 +8,8 @@
     import {onMount} from "svelte";
     import Preview from "$lib/components/explorer/files/Preview.svelte";
 
+    export let filesToDownload = [],
+        search = null;
 
     let wsSocket = null;
 
@@ -39,6 +41,10 @@
         filePreview = fileInstance.findByUuid(fileElement.dataset.uuid);
     }
 
+    const loadFiles = async (query) => {
+        files = await fileInstance.list(query);
+    }
+
     onMount(async () => {
         fileInstance = new File($authToken)
         wsSocket = fileInstance.webSocket($user)
@@ -67,12 +73,27 @@
             }
         });
     })
+
+    var delayTimer = null;
+
+    $: if (search !== null) {
+        clearTimeout(delayTimer);
+        delayTimer = setTimeout(function() {
+            if (search?.length === 0) {
+                loadFiles()
+            }
+
+            if (search?.length >= 3) {
+                loadFiles(search)
+            }
+        }, 500);
+    }
 </script>
 
 {#await filesLoaded}
     <p>Loading files...</p>
 {:then ok}
-    <div class="grid grid-cols-5 gap-4">
+    <div class="grid 2xl:grid-cols-5 lg:grid-cols-3 sm:grid-cols-2 xs:grid-cols-2 grid-cols-1 gap-4">
         {#if ok === null || ok.length === 0}
             <p>No files found.</p>
         {:else}
@@ -90,5 +111,5 @@
     <p>error: {error.message}</p>
 {/await}
 
-<ContextMenu fileInstance="{fileInstance}" fileUUID="{fileUUID}" />
+<ContextMenu fileInstance="{fileInstance}" fileUUID="{fileUUID}" bind:filesToDownload />
 <Preview file="{filePreview}" />

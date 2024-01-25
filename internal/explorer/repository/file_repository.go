@@ -19,6 +19,7 @@ type FileRepositoryInterface interface {
 	Delete(context.Context, *model.File) error
 	Create(context.Context, *model.File) (uint64, error)
 	FindByUUID(context.Context, string) (*model.File, error)
+	Search(context.Context, uint64, string) ([]*model.File, error)
 
 	ChunkRepositoryInterface
 }
@@ -37,6 +38,42 @@ func (fr *FileRepository) GetByUserID(ctx context.Context, userID uint64) ([]*mo
 	const query = "SELECT `id`, `uuid`, `name`, `path`, `hash`, `state`, `size`, `type`, `updated_at` FROM `files` WHERE `user_id` = ?"
 
 	rows, err := fr.db.GetExecer().QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, errors.New("failed to get files")
+	}
+	defer rows.Close()
+
+	var files []*model.File
+
+	for rows.Next() {
+		var file model.File
+
+		err := rows.Scan(
+			&file.ID,
+			&file.UUID,
+			&file.Name,
+			&file.Path,
+			&file.Hash,
+			&file.State,
+			&file.Size,
+			&file.Type,
+			&file.UpdatedAt,
+		)
+
+		if err != nil {
+			return nil, errors.New("failed to scan files")
+		}
+
+		files = append(files, &file)
+	}
+
+	return files, nil
+}
+
+func (fr *FileRepository) Search(ctx context.Context, userID uint64, query string) ([]*model.File, error) {
+	const sqlQuery = "SELECT `id`, `uuid`, `name`, `path`, `hash`, `state`, `size`, `type`, `updated_at` FROM `files` WHERE `user_id` = ? AND `name` LIKE ?"
+
+	rows, err := fr.db.GetExecer().QueryContext(ctx, sqlQuery, userID, "%"+query+"%")
 	if err != nil {
 		return nil, errors.New("failed to get files")
 	}

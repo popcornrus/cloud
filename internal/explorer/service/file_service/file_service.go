@@ -45,6 +45,7 @@ type FileServiceInterface interface {
 	Prepare(context.Context, files.PrepareRequest) (*_struct.PrepareResult, error)
 	Upload(context.Context, string, *model.File, multipart.File) error
 	Delete(context.Context, *model.File) error
+	Search(context.Context, *users.AuthorizeUserResponse, string) ([]*model.File, error)
 
 	CollectFile(context.Context, *model.File) error
 }
@@ -73,6 +74,23 @@ func (fs *FileService) List(ctx context.Context, user *users.AuthorizeUserRespon
 	)
 
 	f, err := fs.fileRepo.GetByUserID(ctx, uint64(user.Id))
+
+	if err != nil {
+		log.Error("failed to get files", slog.Any("err", err))
+		return nil, err
+	}
+
+	return f, nil
+}
+
+func (fs *FileService) Search(ctx context.Context, user *users.AuthorizeUserResponse, query string) ([]*model.File, error) {
+	const op = "FileService.Search"
+
+	log := fs.log.With(
+		slog.String("op", op),
+	)
+
+	f, err := fs.fileRepo.Search(ctx, uint64(user.Id), query)
 
 	if err != nil {
 		log.Error("failed to get files", slog.Any("err", err))
