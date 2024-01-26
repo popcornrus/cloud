@@ -16,6 +16,10 @@ func NewRepository() fx.Option {
 				NewFolderRepository,
 				fx.As(new(FolderRepositoryInterface)),
 			),
+			fx.Annotate(
+				NewShareRepository,
+				fx.As(new(ShareRepositoryInterface)),
+			),
 		),
 	)
 }

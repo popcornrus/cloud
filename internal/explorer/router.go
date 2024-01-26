@@ -3,6 +3,7 @@ package explorer
 import (
 	"cloud/internal/explorer/http/handler"
 	md "cloud/internal/explorer/http/middleware"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -38,6 +39,7 @@ func NewRouter(
 		ri.Route("/files", func(fr chi.Router) {
 			fr.Get("/{uuid}", handlers.File.Show)
 			fr.Get("/{uuid}/preview", handlers.File.Preview)
+			fr.Options("/{uuid}/preview", handlers.File.Preview)
 
 			fr.Route("/", func(ru chi.Router) {
 				ru.Use(md.Auth.New())
@@ -49,7 +51,11 @@ func NewRouter(
 					ruf.Delete("/", handlers.File.Delete)
 					ruf.Get("/download", handlers.File.Download)
 					ruf.Get("/data", handlers.File.Data)
-					ruf.Post("/upload", handlers.File.Upload)
+
+					ruf.Group(func(rufs chi.Router) {
+						rufs.Use(md.MaxBytesReader.New(1024 * 1024 * 2))
+						rufs.Post("/upload", handlers.File.Upload)
+					})
 				})
 			})
 		})
@@ -59,6 +65,11 @@ func NewRouter(
 				ru.Use(md.Auth.New())
 			})
 		})
+	})
+
+	chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		fmt.Printf("[%s]: '%s' has %d middlewares\n", method, route, len(middlewares))
+		return nil
 	})
 
 	return r

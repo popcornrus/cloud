@@ -16,6 +16,10 @@ func NewService() fx.Option {
 				NewFolderService,
 				fx.As(new(FolderServiceInterface)),
 			),
+			fx.Annotate(
+				NewShareService,
+				fx.As(new(ShareServiceInterface)),
+			),
 		),
 	)
 }

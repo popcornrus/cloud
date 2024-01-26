@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"cloud/internal/explorer/enum"
 	"fmt"
 	"github.com/anthonynsimon/bild/imgio"
@@ -8,6 +9,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -125,6 +128,7 @@ func (f *File) CreateVideoPreview() (*string, error) {
 type VideoProcessing interface {
 	ConvertToWebM() error
 	ConvertToMP4() error
+	GetBitrate() (int64, error)
 }
 
 func (f *File) ConvertToWebM() error {
@@ -139,4 +143,30 @@ func (f *File) ConvertToWebM() error {
 	}
 
 	return nil
+}
+
+func (f *File) ConvertToMP4() error {
+	return fmt.Errorf("not implemented")
+}
+
+func (f *File) GetBitrate() (int64, error) {
+	file := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), f.Path, f.Hash)
+
+	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=bit_rate", "-of", "default=noprint_wrappers=1:nokey=1", file)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return 0, fmt.Errorf("error running ffprobe: %s", stderr.String())
+	}
+
+	bitrate, err := strconv.Atoi(strings.TrimSpace(stdout.String()))
+	if err != nil {
+		return 0, fmt.Errorf("error converting bitrate: %s", err)
+	}
+
+	return int64(bitrate), err
 }

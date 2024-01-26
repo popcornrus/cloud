@@ -8,27 +8,27 @@ import (
 	"sync"
 )
 
-type FolderService struct {
+type ShareService struct {
 	log   *slog.Logger
 	cache *cache.Cache
 	mu    sync.Mutex
-	fr    repository.FolderRepositoryInterface
+	sr    repository.ShareRepositoryInterface
 
 	ws *ws.WebSocketClient
 }
 
-type FolderServiceInterface interface {
+type ShareServiceInterface interface {
 }
 
-func NewFolderService(
+func NewShareService(
 	log *slog.Logger,
-	fr repository.FolderRepositoryInterface,
+	sr repository.ShareRepositoryInterface,
 	cache *cache.Cache,
 	ws *ws.WebSocketClient,
-) *FolderService {
-	return &FolderService{
+) *ShareService {
+	return &ShareService{
 		log:   log,
-		fr:    fr,
+		sr:    sr,
 		cache: cache,
 		ws:    ws,
 	}

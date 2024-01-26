@@ -97,6 +97,7 @@ export class Uploader {
                 chunk: chunk,
             }, {
                 timeout: 3000,
+                maxContentLength: 2 * 1024 * 1024,
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     'Content-Range': `bytes ${start}-${end - 1}/${file.size}`

@@ -36,11 +36,6 @@
         }
     }
 
-    const openPreview = (e) => {
-        const fileElement = e.target.closest(".file");
-        filePreview = fileInstance.findByUuid(fileElement.dataset.uuid);
-    }
-
     const loadFiles = async (query) => {
         files = await fileInstance.list(query);
     }
@@ -100,7 +95,6 @@
             {#each files as file}
                 <Template
                     oncontextmenu={openContextMenu}
-                    onclick={openPreview}
                     file="{file}"
                     process="{fileInstance}"
                 />
@@ -112,4 +106,3 @@
 {/await}
 
 <ContextMenu fileInstance="{fileInstance}" fileUUID="{fileUUID}" bind:filesToDownload />
-<Preview file="{filePreview}" />

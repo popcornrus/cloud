@@ -5,14 +5,17 @@ import (
 )
 
 type Middleware struct {
-	Auth *AuthMiddleware
+	Auth           *AuthMiddleware
+	MaxBytesReader *MaxBytesReaderMiddleware
 }
 
 func NewMiddlewares(
 	auth *AuthMiddleware,
+	maxBytesReader *MaxBytesReaderMiddleware,
 ) *Middleware {
 	return &Middleware{
-		Auth: auth,
+		Auth:           auth,
+		MaxBytesReader: maxBytesReader,
 	}
 }
 
@@ -21,6 +24,7 @@ func NewMiddleware() fx.Option {
 		"middleware",
 		fx.Provide(
 			NewAuthMiddleware,
+			NewMaxBytesReaderMiddleware,
 			NewMiddlewares,
 		),
 	)

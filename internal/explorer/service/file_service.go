@@ -29,10 +29,10 @@ import (
 )
 
 type FileService struct {
-	log      *slog.Logger
-	cache    *cache.Cache
-	mu       sync.Mutex
-	fileRepo repository.FileRepositoryInterface
+	log   *slog.Logger
+	cache *cache.Cache
+	mu    sync.Mutex
+	fr    repository.FileRepositoryInterface
 
 	ws *ws.WebSocketClient
 }
@@ -57,14 +57,14 @@ func NewFileService(
 	ws *ws.WebSocketClient,
 ) *FileService {
 	return &FileService{
-		log:      log,
-		fileRepo: fr,
-		cache:    cache,
-		ws:       ws,
+		log:   log,
+		fr:    fr,
+		cache: cache,
+		ws:    ws,
 	}
 }
 
-const ChunkSize = 1024 * 50
+const ChunkSize = 1024 * 1024
 
 func (fs *FileService) List(ctx context.Context, user *users.AuthorizeUserResponse) ([]*model.File, error) {
 	const op = "FileService.List"
@@ -73,7 +73,7 @@ func (fs *FileService) List(ctx context.Context, user *users.AuthorizeUserRespon
 		slog.String("op", op),
 	)
 
-	f, err := fs.fileRepo.GetByUserID(ctx, uint64(user.Id))
+	f, err := fs.fr.GetByUserID(ctx, uint64(user.Id))
 
 	if err != nil {
 		log.Error("failed to get files", slog.Any("err", err))
@@ -90,7 +90,7 @@ func (fs *FileService) Search(ctx context.Context, user *users.AuthorizeUserResp
 		slog.String("op", op),
 	)
 
-	f, err := fs.fileRepo.Search(ctx, uint64(user.Id), query)
+	f, err := fs.fr.Search(ctx, uint64(user.Id), query)
 
 	if err != nil {
 		log.Error("failed to get files", slog.Any("err", err))
@@ -187,7 +187,7 @@ func (fs *FileService) Update(ctx context.Context, file *model.File, req files.U
 		file.Name = req.Name
 	}
 
-	if err := fs.fileRepo.Update(ctx, file); err != nil {
+	if err := fs.fr.Update(ctx, file); err != nil {
 		return err
 	}
 
@@ -212,7 +212,7 @@ func (fs *FileService) Prepare(ctx context.Context, req files.PrepareRequest) (*
 
 	var err error
 
-	file.ID, err = fs.fileRepo.Create(ctx, file)
+	file.ID, err = fs.fr.Create(ctx, file)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (fs *FileService) Upload(
 	if start == 0 {
 		file.State = enum.FileStateUploading
 
-		if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+		if err := fs.fr.Update(context.Background(), file); err != nil {
 			return err
 		}
 	}
@@ -271,7 +271,7 @@ func (fs *FileService) Upload(
 		return err
 	}
 
-	if err := fs.fileRepo.StoreFileChunk(context.Background(), &model.FileChunk{
+	if err := fs.fr.StoreFileChunk(context.Background(), &model.FileChunk{
 		FileID: file.ID,
 		Chunk:  start,
 		Hash:   chunkHash,
@@ -282,7 +282,7 @@ func (fs *FileService) Upload(
 	if fs.FileIsUploaded(file) {
 		file.State = enum.FileStateCollecting
 
-		if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+		if err := fs.fr.Update(context.Background(), file); err != nil {
 			return err
 		}
 
@@ -315,46 +315,59 @@ func (fs *FileService) Delete(ctx context.Context, file *model.File) error {
 		slog.String("op", op),
 	)
 
-	if err := fs.fileRepo.Delete(ctx, file); err != nil {
+	if err := fs.fr.Delete(ctx, file); err != nil {
 		log.Error("failed to delete file", slog.Any("err", err))
 		return err
 	}
 
 	go func() {
-		filePath := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash)
-		if _, err := os.Stat(filePath); err == nil {
-			if err := os.Remove(filePath); err != nil {
-				log.Error("failed to remove file", slog.Any("err", err))
-				return
+		removeFile := func(filePath string) {
+			if _, err := os.Stat(filePath); err == nil {
+				if err := os.Remove(filePath); err != nil {
+					log.Error("failed to remove file", slog.Any("err", err))
+				}
 			}
 		}
 
-		previewPath := fmt.Sprintf("%s/%s/.preview", os.Getenv("SRV_PATH"), file.Path)
-		previewFile := fmt.Sprintf("%s/%s.jpg", previewPath, file.Hash)
-		if _, err := os.Stat(previewFile); err == nil {
-			if err := os.Remove(previewFile); err != nil {
-				log.Error("failed to remove preview file", slog.Any("err", err))
-				return
+		removeAllFiles := func(path string) {
+			if _, err := os.Stat(path); err == nil {
+				if err := os.RemoveAll(path); err != nil {
+					log.Error("failed to remove file", slog.Any("err", err))
+				}
 			}
 		}
+
+		path := fmt.Sprintf("%s/%s", os.Getenv("SRV_PATH"), file.Path)
+		filePath := fmt.Sprintf("%s/%s", path, file.Hash)
+
+		removeFile(filePath)
+
+		previewPath := fmt.Sprintf("%s/.preview", path)
+		previewFile := fmt.Sprintf("%s/%s.jpg", previewPath, file.Hash)
+
+		removeFile(previewFile)
 
 		cachePath := fmt.Sprintf("%s/%s/.cache", os.Getenv("SRV_PATH"), file.Path)
 		cacheFile := fmt.Sprintf("%s/%s", cachePath, file.Hash)
-		if _, err := os.Stat(cacheFile); err == nil {
-			if err := os.RemoveAll(cacheFile); err != nil {
-				log.Error("failed to remove cache file", slog.Any("err", err))
+
+		removeAllFiles(cacheFile)
+
+		if file.State != enum.FileStateDone {
+			chunks, err := fs.fr.GetFileChunks(context.Background(), file.ID)
+			if err != nil {
+				log.Error("failed to get file chunks", slog.Any("err", err))
 				return
+			}
+
+			for _, chunk := range chunks {
+				chunkPath := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, chunk.Hash)
+				removeFile(chunkPath)
 			}
 		}
 
 		if file.IsVideo() {
 			webmPath := fmt.Sprintf("%s/%s/%s.webm", os.Getenv("SRV_PATH"), file.Path, file.Hash)
-			if _, err := os.Stat(webmPath); err == nil {
-				if err := os.Remove(webmPath); err != nil {
-					log.Error("failed to remove webm file", slog.Any("err", err))
-					return
-				}
-			}
+			removeFile(webmPath)
 		}
 	}()
 
@@ -367,7 +380,7 @@ func (fs *FileService) FindByUUID(ctx context.Context, uuid string) (*model.File
 		return cachedFile.(*model.File), nil
 	}
 
-	file, err := fs.fileRepo.FindByUUID(ctx, uuid)
+	file, err := fs.fr.FindByUUID(ctx, uuid)
 
 	if err != nil {
 		return nil, err
@@ -385,7 +398,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 		slog.String("op", op),
 	)
 
-	chunks, err := fs.fileRepo.GetFileChunks(context.Background(), file.ID)
+	chunks, err := fs.fr.GetFileChunks(context.Background(), file.ID)
 	if err != nil {
 		log.Error("failed to get file chunks", slog.Any("err", err))
 		return err
@@ -432,7 +445,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 		}
 	}
 
-	err = fs.fileRepo.RemoveFileChunks(context.Background(), file.ID)
+	err = fs.fr.RemoveFileChunks(context.Background(), file.ID)
 	if err != nil {
 		log.Error("failed to remove file chunks", slog.Any("err", err))
 		return err
@@ -450,7 +463,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 		go func() {
 			file.State = enum.FileStateConverting
 
-			if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+			if err := fs.fr.Update(context.Background(), file); err != nil {
 				log.Error("failed to update file", slog.Any("err", err))
 				return
 			}
@@ -472,7 +485,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 
 			file.State = enum.FileStateDone
 
-			if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+			if err := fs.fr.Update(context.Background(), file); err != nil {
 				log.Error("failed to update file", slog.Any("err", err))
 				return
 			}
@@ -489,7 +502,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 	} else {
 		file.State = enum.FileStateDone
 
-		if err := fs.fileRepo.Update(context.Background(), file); err != nil {
+		if err := fs.fr.Update(context.Background(), file); err != nil {
 			log.Error("failed to update file", slog.Any("err", err))
 			return err
 		}

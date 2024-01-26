@@ -4,14 +4,8 @@
     import Plyr from 'plyr';
     import "plyr/dist/plyr.css";
 
-    export let file = {
-        uuid: '',
-        name: '',
-        type: '',
-        size: 0,
-    };
-
-    let modalOpen = false;
+    export let file = null,
+        modalOpen = false;
 
     $: if (file?.uuid?.length > 0) {
         modalOpen = true

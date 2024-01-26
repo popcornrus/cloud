@@ -20,7 +20,7 @@ export class User {
         await this.axios.post(`/sign-in`, {
             email: email,
             password: password
-        }).then(({ data }) => {
+        }).then(({data}) => {
             localStorage.setItem('token', data.data.token);
 
             toast = {
@@ -30,7 +30,7 @@ export class User {
         }).catch((error) => {
             toast = {
                 status: 'error',
-                message: error.response.data.message,
+                message: error.response?.data.message ?? error.error(),
             }
         })
 

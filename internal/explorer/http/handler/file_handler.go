@@ -109,7 +109,11 @@ func (fh *FileHandler) Show(w http.ResponseWriter, r *http.Request) {
 
 	path := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash)
 	if file.IsVideo() {
-		path = fmt.Sprintf("%s/%s/%s.webm", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+		if file.State == enum.FileStateConverting {
+			path = fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+		} else {
+			path = fmt.Sprintf("%s/%s/%s.webm", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+		}
 	}
 
 	f, err := os.Open(path)
@@ -122,7 +126,12 @@ func (fh *FileHandler) Show(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 
 	if file.IsVideo() {
-		w.Header().Set("Content-Type", "video/webm")
+		contentType := "video/webm"
+		if file.State == enum.FileStateConverting {
+			contentType = file.Type
+		}
+
+		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size))
 		w.Header().Set("Accept-Ranges", "bytes")
 
@@ -386,7 +395,7 @@ func (fh *FileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
+	if err := r.ParseMultipartForm(1024 * 1024 * 2); err != nil {
 		log.Error("failed to parse multipart form", slog.Any("err", err))
 
 		response.Respond(w, response.Response{
