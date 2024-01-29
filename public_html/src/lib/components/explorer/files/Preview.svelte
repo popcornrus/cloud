@@ -32,12 +32,12 @@
             </div>
             <div class="p-4 overflow-y-auto">
                 {#if file?.type.IsImage()}
-                    <Image src="{env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/{file?.uuid}" alt="{file?.name}" />
+                    <Image src="{env.PUBLIC_BACKEND_URL}/explorer/files/{file?.uuid}" alt="{file?.name}" />
                 {:else if file?.type.IsVideo()}
-                    <video src="{env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/{file?.uuid}" id="player"
+                    <video src="{env.PUBLIC_BACKEND_URL}/explorer/files/{file?.uuid}" id="player"
 
                     >
-                        <track kind="captions" src="{env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/{file?.uuid}">
+                        <track kind="captions" src="{env.PUBLIC_BACKEND_URL}/explorer/files/{file?.uuid}">
                     </video>
                 {:else}
                     <div class="flex justify-center items-center w-full h-full p-24">

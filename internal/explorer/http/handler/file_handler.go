@@ -204,11 +204,15 @@ func (fh *FileHandler) Preview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	image, err := fh.fs.Preview(_struct.PreviewProcessing{
+	opt := _struct.PreviewProcessing{
 		Width:  r.URL.Query().Get("w"),
 		Height: r.URL.Query().Get("h"),
 		Action: r.URL.Query().Get("a"),
-	}, file)
+	}
+
+	log.Info("preview options", slog.Any("opt", opt))
+
+	image, err := fh.fs.Preview(opt, file)
 	if err != nil {
 		log.Error("failed to preview file", slog.Any("err", err))
 
@@ -253,6 +257,13 @@ func (fh *FileHandler) Prepare(w http.ResponseWriter, r *http.Request) {
 
 	if err := fh.validator.Struct(req); err != nil {
 		log.Error("failed to validate request", slog.Any("err", err))
+
+		response.Respond(w, response.Response{
+			Status:  http.StatusUnprocessableEntity,
+			Message: "unprocessable entity",
+			Data:    map[string]interface{}{"errors": err.Error()},
+		})
+
 		return
 	}
 

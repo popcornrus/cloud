@@ -14,7 +14,7 @@ import (
 
 type (
 	UserGrpcServer struct {
-		user user_service.UserService
+		user user_service.UserServiceInterface
 		log  *slog.Logger
 		ch   *cache.Cache
 	}
@@ -23,7 +23,7 @@ type (
 func (u *UserGrpcServer) Get(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error) {
 	var userResponse = &GetUserResponse{}
 
-	user, err := u.user.FindUserByUUID(ctx, request.Uuid)
+	user, err := u.user.FindById(ctx, request.Id)
 
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (u *UserGrpcServer) mustEmbedUnimplementedUserServer() {
 }
 
 func NewUserGRPC(
-	u user_service.UserService,
+	u user_service.UserServiceInterface,
 	log *slog.Logger,
 	ch *cache.Cache,
 ) *UserGrpcServer {
@@ -94,6 +94,7 @@ func RunUserGRPCServer(
 	lc fx.Lifecycle,
 	log *slog.Logger,
 	ch *cache.Cache,
+	us user_service.UserServiceInterface,
 ) {
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
@@ -105,8 +106,9 @@ func RunUserGRPCServer(
 
 				grpcServer := grpc.NewServer()
 				RegisterUserServer(grpcServer, &UserGrpcServer{
-					log: log,
-					ch:  ch,
+					log:  log,
+					ch:   ch,
+					user: us,
 				})
 
 				if err := grpcServer.Serve(lis); err != nil {

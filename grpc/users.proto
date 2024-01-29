@@ -22,7 +22,7 @@ message AuthorizeUserResponse {
 }
 
 message GetUserRequest {
-  string uuid = 1;
+  int64 id = 1;
 }
 
 message GetUserResponse {

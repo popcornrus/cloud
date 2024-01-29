@@ -40,6 +40,7 @@ type FileService struct {
 type FileServiceInterface interface {
 	List(context.Context, *users.AuthorizeUserResponse) ([]*model.File, error)
 	FindByUUID(context.Context, string) (*model.File, error)
+	FindByID(context.Context, uint64) (*model.File, error)
 	Preview(_struct.PreviewProcessing, *model.File) (image.Image, error)
 	Update(context.Context, *model.File, files.UpdateRequest) error
 	Prepare(context.Context, files.PrepareRequest) (*_struct.PrepareResult, error)
@@ -83,6 +84,23 @@ func (fs *FileService) List(ctx context.Context, user *users.AuthorizeUserRespon
 	return f, nil
 }
 
+func (fs *FileService) FindByID(ctx context.Context, id uint64) (*model.File, error) {
+	const op = "FileService.FindByID"
+
+	log := fs.log.With(
+		slog.String("op", op),
+	)
+
+	f, err := fs.fr.FindByID(ctx, id)
+
+	if err != nil {
+		log.Error("failed to get file", slog.Any("err", err))
+		return nil, err
+	}
+
+	return f, nil
+}
+
 func (fs *FileService) Search(ctx context.Context, user *users.AuthorizeUserResponse, query string) ([]*model.File, error) {
 	const op = "FileService.Search"
 
@@ -118,6 +136,7 @@ func (fs *FileService) Preview(proc _struct.PreviewProcessing, file *model.File)
 			return nil, err
 		}
 	} else {
+		log.Error("width is required")
 		return nil, errors.New("width is required")
 	}
 
@@ -128,6 +147,7 @@ func (fs *FileService) Preview(proc _struct.PreviewProcessing, file *model.File)
 			return nil, err
 		}
 	} else {
+		log.Error("height is required")
 		return nil, errors.New("height is required")
 	}
 

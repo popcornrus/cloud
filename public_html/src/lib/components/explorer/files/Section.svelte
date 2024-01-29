@@ -4,22 +4,24 @@
     import { user } from "$lib/stores/user.js";
 
     import { File } from "$lib/classes/File.js";
+    import { WebSocketClient } from "$lib/classes/WebSocketClient.js";
+    import { Toast } from "$lib/classes/Toast.js";
+    import { ShareModal } from "$lib/classes/Share.js";
+
     import ContextMenu from "$lib/components/explorer/files/ContextMenu.svelte";
     import {onMount} from "svelte";
-    import Preview from "$lib/components/explorer/files/Preview.svelte";
 
     export let filesToDownload = [],
         search = null;
 
-    let wsSocket = null;
-
     let fileInstance = null,
         fileUUID = null,
-        filePreview = null,
         files = [],
         filesLoaded = new Promise((resolve) => {
             resolve([]);
         });
+
+    let wss = null;
 
     const openContextMenu = (e) => {
         const contextMenu = document.querySelector("#file-context-menu");
@@ -42,7 +44,6 @@
 
     onMount(async () => {
         fileInstance = new File($authToken)
-        wsSocket = fileInstance.webSocket($user)
         filesLoaded = fileInstance.list();
 
         files = await filesLoaded ?? [];
@@ -54,7 +55,8 @@
             }
         });
 
-        wsSocket.addEventListener("message", async (e) => {
+        wss = new WebSocketClient($user)
+        wss.addEventListener("message", async (e) => {
             const data = JSON.parse(e.data);
 
             if (data.event === "file:created") {
@@ -65,6 +67,21 @@
 
             if (data.event === "file:deleted") {
                 files = files.filter((file) => file.uuid !== data.data.uuid);
+                return
+            }
+
+            if (data.event === "share:deleted") {
+                const shareModal = document.getElementById('share-modal')
+
+                if (shareModal && shareModal.dataset.uuid === data.data.uuid) {
+                    shareModal.remove()
+                }
+
+                await Toast({
+                    message: "Share was deleted",
+                    type: "success",
+                    duration: 3000,
+                })
             }
         });
     })
@@ -96,7 +113,7 @@
                 <Template
                     oncontextmenu={openContextMenu}
                     file="{file}"
-                    process="{fileInstance}"
+                    wss="{wss}"
                 />
             {/each}
         {/if}

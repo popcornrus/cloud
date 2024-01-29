@@ -4,7 +4,7 @@ import {env} from "$env/dynamic/public";
 export class Uploader {
     constructor(token) {
         this.axios = axios.create({
-            baseURL: `${env.PUBLIC_BACKEND_URL}/api/v1/explorer/files`,
+            baseURL: `${env.PRIVATE_BACKEND_URL}/api/v1/explorer/files`,
             timeout: 1000,
             headers: {'Authorization': `Bearer ${token}`}
         })

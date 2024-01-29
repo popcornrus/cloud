@@ -25,3 +25,16 @@ Object.defineProperty(String.prototype, 'IsVideo', {
         return ['video/mp4', 'video/webm', 'video/ogg'].includes(this);
     }, writable: false
 });
+
+Object.defineProperty(String.prototype, 'Hash256', {
+    value: async function () {
+        const utf8 = new TextEncoder().encode(this);
+        return await crypto.subtle.digest('SHA-256', utf8).then((hashBuffer) => {
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray
+                .map((bytes) => bytes.toString(16).padStart(2, '0'))
+                .join('');
+            return hashHex;
+        });
+    }, writable: false
+})

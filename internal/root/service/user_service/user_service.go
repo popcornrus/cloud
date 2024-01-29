@@ -28,6 +28,7 @@ type UserServiceInterface interface {
 	SignIn(context.Context, request.SignInRequest) (*string, error)
 	FindUserByUUID(context.Context, string) (*model.User, error)
 	FindUserByEmail(context.Context, string) (*model.User, error)
+	FindById(context.Context, int64) (*model.User, error)
 }
 
 func NewUserService(
@@ -89,6 +90,22 @@ func (s *UserService) FindUserByEmail(ctx context.Context, email string) (*model
 	)
 
 	entity, err := s.userRepo.FindUserByEmail(ctx, email)
+	if err != nil {
+		log.Error("failed to find user", err)
+		return nil, err
+	}
+
+	return &entity, nil
+}
+
+func (s *UserService) FindById(ctx context.Context, id int64) (*model.User, error) {
+	const op = "UserService.FindById"
+
+	log := s.log.With(
+		slog.String("op", op),
+	)
+
+	entity, err := s.userRepo.FindUserByID(ctx, id)
 	if err != nil {
 		log.Error("failed to find user", err)
 		return nil, err

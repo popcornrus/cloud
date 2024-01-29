@@ -2,23 +2,13 @@
     import Image from "$lib/components/Image.svelte";
     import {env} from "$env/dynamic/public";
 
+    import { ShareModal } from "$lib/classes/Share.js";
+
     import CollectingSVG from "$lib/assets/collecting.svg";
 
     export let file = null,
-        process = null,
-        checked = false;
-
-    const share = async () => {
-        const {default: Share} = await import('$lib/components/explorer/files/Share.svelte');
-
-        new Share({
-            target: document.body,
-            props: {
-                file: file,
-                modalOpen: true,
-            }
-        })
-    }
+        checked = false,
+        wss = null;
 
     const preview = async () => {
         const {default: Preview} = await import('$lib/components/explorer/files/Preview.svelte');
@@ -32,8 +22,8 @@
         })
     }
 
-    $: if (file && process !== null) {
-        process.WebSocket.addEventListener('message', (e) => {
+    $: if (wss !== null) {
+        wss.addEventListener('message', (e) => {
             if (e.data.indexOf(file.uuid) === -1) {
                 return;
             }
@@ -56,13 +46,13 @@
             }
 
             if (data.event === 'file:preview') {
-                file.preview = `${env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/${file.uuid}/preview?h=128&w=300&a=resize`
+                file.preview = `${env.PUBLIC_BACKEND_URL}/explorer/files/${file.uuid}/preview?h=128&w=300&a=resize`
             }
         })
     }
 
     $: if (file !== null) {
-        file.preview = file.state === 'pending' ? '' : `${env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/${file.uuid}/preview?h=128&w=300&a=resize`
+        file.preview = file.state === 'pending' ? '' : `${env.PUBLIC_BACKEND_URL}/explorer/files/${file.uuid}/preview?h=128&w=300&a=resize`
     }
 </script>
 
@@ -128,7 +118,7 @@
                 </div>
             {/if}
             {#if file.state === 'done'}
-                <button role="button" on:click={share}>
+                <button role="button" on:click={() => ShareModal(file)}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-gray-500 hover:text-gray-400 transition duration-300">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                     </svg>

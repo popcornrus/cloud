@@ -3,20 +3,18 @@ import {env} from "$env/dynamic/public";
 
 export class File {
     constructor(token) {
-        this.axios = axios.create({
-            baseURL: `${env.PUBLIC_BACKEND_URL}/api/v1/explorer/files`,
+        this.privateApi = axios.create({
+            baseURL: `${env.PUBLIC_BACKEND_URL_API}/explorer/files`,
             timeout: 1000,
             headers: {'Authorization': `Bearer ${token}`}
         })
 
         this.token = token;
         this.files = [];
-
-        this.WebSocket = null;
     }
 
     async list(search = null) {
-        await this.axios.get(``, {
+        await this.privateApi.get(``, {
             params: {
                 search: search
             }
@@ -31,7 +29,7 @@ export class File {
         const _self = this
         let file = new Promise(() => {});
 
-        await this.axios.get(uuid + `/data`).then(({data}) => {
+        await this.privateApi.get(uuid + `/data`).then(({data}) => {
             file = data.data
 
             if (!_self.files.find(file => file.uuid === data.data.uuid)) {
@@ -67,7 +65,7 @@ export class File {
                     suggestedName: file.name
                 });
 
-                this.axios.get(streamUrl, {
+                this.privateApi.get(streamUrl, {
                     responseType: "blob",
                     onDownloadProgress: (progress) => progressClosure(file, progress)
                 }).then(async response => {
@@ -85,7 +83,7 @@ export class File {
             }
         }
 
-        let blob = await this.axios.get(streamUrl, {
+        let blob = await this.privateApi.get(streamUrl, {
             responseType: "blob",
             onDownloadProgress: (progress) => progressClosure(file, progress)
         }).then(async response => {
@@ -161,41 +159,8 @@ export class File {
     async delete(uuid) {
         const _self = this
 
-        await this.axios.delete(`/${uuid}`).then(() => {
+        await this.privateApi.delete(`/${uuid}`).then(() => {
             _self.files = _self.files.filter(file => file.uuid !== uuid);
         })
-    }
-
-    webSocket(user) {
-        const socket = new WebSocket(`${env.PUBLIC_BACKEND_URL.replace('http', 'ws')}/ws/echo`);
-
-        this.WebSocket = socket
-
-        socket.onopen = function(e) {
-            console.log("[open] Connection established");
-
-            socket.send(JSON.stringify({
-                channel: "files." + user.uuid,
-                event: "action:subscribe",
-                data: {}
-            }))
-        };
-
-        socket.onmessage = function(event) {
-        };
-
-        socket.onclose = function(event) {
-            if (event.wasClean) {
-                console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
-            } else {
-                console.log('[close] Connection died');
-            }
-        };
-
-        socket.onerror = function(error) {
-            console.log(`[error] ${error.message}`);
-        };
-
-        return socket
     }
 }

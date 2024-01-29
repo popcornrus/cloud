@@ -2,6 +2,7 @@
 
 import {env} from "$env/dynamic/public";
 import axios from "axios";
+import {Toast} from "$lib/classes/Toast.js";
 
 export class User {
     constructor(token) {
@@ -15,26 +16,28 @@ export class User {
     }
 
     async login(email, password) {
-        let toast = null;
-
-        await this.axios.post(`/sign-in`, {
+        return await this.axios.post(`/sign-in`, {
             email: email,
             password: password
         }).then(({data}) => {
             localStorage.setItem('token', data.data.token);
 
-            toast = {
-                status: 'success',
+            Toast({
+                type: 'success',
                 message: 'Successfully logged in',
-            }
-        }).catch((error) => {
-            toast = {
-                status: 'error',
-                message: error.response?.data.message ?? error.error(),
-            }
-        })
+                duration: 3000,
+            })
 
-        return toast;
+            return true;
+        }).catch((error) => {
+            Toast({
+                type: 'error',
+                message: error.response?.data.message ?? error.message,
+                duration: 3000,
+            })
+
+            return false
+        })
     }
 
     async signUp(username, email, password) {

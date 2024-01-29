@@ -5,10 +5,7 @@
 
     let formInProcess = false;
 
-    let toast = {
-        status: null,
-        message: null,
-    };
+    let result;
 
     onMount(() => {
         const user = new User();
@@ -24,17 +21,22 @@
             password.disabled = true;
             formInProcess = true;
 
-            toast = await user.login(email.value, password.value)
-            setTimeout(() => {
-                if (toast.status === 'success') {
+            result = await user.login(email.value, password.value)
+
+            if (!result) {
+                email.disabled = false;
+                password.disabled = false;
+                formInProcess = false;
+            } else {
+                setTimeout(() => {
                     window.location.href = '/';
-                }
-            }, 2500)
+                }, 3000)
+            }
         })
     })
 </script>
 
-<form action="/auth?/login" method="post" class="shadow rounded-3xl min-w-[25%] max-w-[30%] p-10">
+<form action="/auth?/login" method="post" class="shadow rounded-3xl min-w-[25%] xl:max-w-[30%] p-10">
     <h3 class="text-2xl dark:text-white font-bold">Hi, Welcome Back!</h3>
     <div class="my-8 grid gap-y-2">
         <div class="mb-2">
@@ -96,8 +98,3 @@
         {/if}
     </div>
 </form>
-
-<Toast
-        bind:toast={toast}
-        visible="{toast.status !== null}"
-/>

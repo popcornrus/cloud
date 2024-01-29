@@ -1,11 +1,11 @@
 env: "local" # local, dev, prod
 http_server:
   address: ":8082"
-  timeout: 4s
+  timeout: 30s
   idle_timeout: 60s
 explorer_server:
   address: ":32001"
-  timeout: 4s
+  timeout: 30s
   idle_timeout: 60s
 db:
   max_open_conns: 25

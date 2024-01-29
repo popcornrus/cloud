@@ -19,6 +19,7 @@ type FileRepositoryInterface interface {
 	Delete(context.Context, *model.File) error
 	Create(context.Context, *model.File) (uint64, error)
 	FindByUUID(context.Context, string) (*model.File, error)
+	FindByID(context.Context, uint64) (*model.File, error)
 	Search(context.Context, uint64, string) ([]*model.File, error)
 
 	ChunkRepositoryInterface
@@ -68,6 +69,32 @@ func (fr *FileRepository) GetByUserID(ctx context.Context, userID uint64) ([]*mo
 	}
 
 	return files, nil
+}
+
+func (fr *FileRepository) FindByID(ctx context.Context, id uint64) (*model.File, error) {
+	const query = "SELECT `id`, `uuid`, `name`, `path`, `hash`, `state`, `size`, `preview`, `type`, `updated_at` FROM `files` WHERE `id` = ? LIMIT 1"
+
+	row := fr.db.GetExecer().QueryRowContext(ctx, query, id)
+
+	var file model.File
+
+	err := row.Scan(
+		&file.ID,
+		&file.UUID,
+		&file.Name,
+		&file.Path,
+		&file.Hash,
+		&file.State,
+		&file.Size,
+		&file.Preview,
+		&file.Type,
+		&file.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &file, nil
 }
 
 func (fr *FileRepository) Search(ctx context.Context, userID uint64, query string) ([]*model.File, error) {

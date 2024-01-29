@@ -19,7 +19,7 @@ type UserRepositoryInterface interface {
 	Update(context.Context, *model.User) error
 	Create(context.Context, *model.User) (*model.User, error)
 	FindUserByUUID(context.Context, string) (model.User, error)
-	FindUserByID(context.Context, int) (model.User, error)
+	FindUserByID(context.Context, int64) (model.User, error)
 	FindUserByEmail(context.Context, string) (model.User, error)
 }
 
@@ -86,7 +86,7 @@ func (r *UserRepository) FindUserByUUID(ctx context.Context, uuid string) (model
 	return user, nil
 }
 
-func (r *UserRepository) FindUserByID(ctx context.Context, userID int) (model.User, error) {
+func (r *UserRepository) FindUserByID(ctx context.Context, userID int64) (model.User, error) {
 	const op = "repository.user.GetUserByID"
 
 	const query = "SELECT `id`, `uuid`, `username`, `password`, `email`, `updated_at` FROM `users` WHERE `id` = ?"

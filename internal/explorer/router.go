@@ -35,42 +35,72 @@ func NewRouter(
 		MaxAge:           300,
 	}))
 
-	r.Route("/api/v1/explorer", func(ri chi.Router) {
-		ri.Route("/files", func(fr chi.Router) {
-			fr.Get("/{uuid}", handlers.File.Show)
-			fr.Get("/{uuid}/preview", handlers.File.Preview)
-			fr.Options("/{uuid}/preview", handlers.File.Preview)
+	public := r
+	private := r
 
-			fr.Route("/", func(ru chi.Router) {
-				ru.Use(md.Auth.New())
-				ru.Get("/", handlers.File.List)
-				ru.Post("/prepare", handlers.File.Prepare)
+	public.Route("/public/v1/explorer", func(r chi.Router) {
+		r.Route("/files", func(r chi.Router) {
+			r.Get("/{uuid}", handlers.File.Show)
+			r.Get("/{uuid}/preview", handlers.File.Preview)
+		})
 
-				ru.Route("/{uuid}", func(ruf chi.Router) {
-					ruf.Patch("/", handlers.File.Update)
-					ruf.Delete("/", handlers.File.Delete)
-					ruf.Get("/download", handlers.File.Download)
-					ruf.Get("/data", handlers.File.Data)
+		r.Route("/share", func(r chi.Router) {
+			r.Get("/{uuid}", handlers.Share.Show)
+			r.Get("/{uuid}/{pin}", handlers.Share.Show)
+			r.Get("/{uuid}/download", handlers.File.Download)
+		})
+	})
 
-					ruf.Group(func(rufs chi.Router) {
-						rufs.Use(md.MaxBytesReader.New(1024 * 1024 * 2))
-						rufs.Post("/upload", handlers.File.Upload)
-					})
+	fmt.Printf("\n\n")
+	log.Info("Public Routes:")
+	chi.Walk(public, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		fmt.Printf("%s %s has %d middlewares\n", method, route, len(middlewares))
+		return nil
+	})
+	fmt.Printf("\n\n")
+
+	private.Route("/api/v1/explorer", func(r chi.Router) {
+		r.Use(md.Auth.New())
+
+		r.Route("/files", func(r chi.Router) {
+			r.Get("/", handlers.File.List)
+			r.Post("/prepare", handlers.File.Prepare)
+
+			r.Route("/{uuid}", func(r chi.Router) {
+				r.Patch("/", handlers.File.Update)
+				r.Delete("/", handlers.File.Delete)
+				r.Get("/download", handlers.File.Download)
+				r.Get("/data", handlers.File.Data)
+
+				r.Group(func(rfs chi.Router) {
+					rfs.Use(md.MaxBytesReader.New(1024 * 1024 * 2))
+					rfs.Post("/upload", handlers.File.Upload)
 				})
 			})
 		})
 
-		ri.Route("/folders", func(fr chi.Router) {
-			fr.Route("/", func(ru chi.Router) {
-				ru.Use(md.Auth.New())
+		r.Route("/share", func(r chi.Router) {
+			r.Post("/create", handlers.Share.Create)
+			r.Get("/{file}/data", handlers.Share.Data)
+			r.Route("/{uuid}", func(ruf chi.Router) {
+				ruf.Put("/", handlers.Share.Update)
+				ruf.Delete("/", handlers.Share.Delete)
+			})
+		})
+
+		r.Route("/folders", func(r chi.Router) {
+			r.Route("/", func(ru chi.Router) {
 			})
 		})
 	})
 
-	chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		fmt.Printf("[%s]: '%s' has %d middlewares\n", method, route, len(middlewares))
+	log.Info("Private Routes:")
+	chi.Walk(private, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		fmt.Printf("%s %s has %d middlewares\n", method, route, len(middlewares))
 		return nil
 	})
+
+	fmt.Printf("\n\n")
 
 	return r
 }
