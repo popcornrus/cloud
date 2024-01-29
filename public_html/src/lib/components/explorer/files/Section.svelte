@@ -1,12 +1,11 @@
 <script>
     import Template from "$lib/components/explorer/files/File.svelte";
     import { authToken } from "$lib/stores/token.js";
-    import { user } from "$lib/stores/user.js";
 
     import { File } from "$lib/classes/File.js";
-    import { WebSocketClient } from "$lib/classes/WebSocketClient.js";
     import { Toast } from "$lib/classes/Toast.js";
-    import { ShareModal } from "$lib/classes/Share.js";
+
+    import { wss } from "$lib/stores/websocket.js";
 
     import ContextMenu from "$lib/components/explorer/files/ContextMenu.svelte";
     import {onMount} from "svelte";
@@ -20,8 +19,6 @@
         filesLoaded = new Promise((resolve) => {
             resolve([]);
         });
-
-    let wss = null;
 
     const openContextMenu = (e) => {
         const contextMenu = document.querySelector("#file-context-menu");
@@ -55,8 +52,7 @@
             }
         });
 
-        wss = new WebSocketClient($user)
-        wss.addEventListener("message", async (e) => {
+        $wss.addEventListener("message", async (e) => {
             const data = JSON.parse(e.data);
 
             if (data.event === "file:created") {
@@ -70,16 +66,18 @@
                 return
             }
 
-            if (data.event === "share:deleted") {
-                const shareModal = document.getElementById('share-modal')
-
-                if (shareModal && shareModal.dataset.uuid === data.data.uuid) {
-                    shareModal.remove()
-                }
-
+            if (data.event === "share:burned") {
                 await Toast({
-                    message: "Share was deleted",
-                    type: "success",
+                    message: "Share was used and burned",
+                    type: "warning",
+                    duration: 3000,
+                })
+            }
+
+            if (data.event === "share:reached_limit") {
+                await Toast({
+                    message: "Share was reached limit",
+                    type: "warning",
                     duration: 3000,
                 })
             }

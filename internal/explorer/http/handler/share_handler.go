@@ -16,6 +16,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"log/slog"
 	"net/http"
+	"os"
 )
 
 type (
@@ -42,12 +43,14 @@ func NewShareHandler(
 	log *slog.Logger,
 	hs service.ShareServiceInterface,
 	fs service.FileServiceInterface,
+	ws *ws.WebSocketClient,
 ) *ShareHandler {
 	return &ShareHandler{
 		log:       log,
 		validator: validator.New(),
 		hs:        hs,
 		fs:        fs,
+		ws:        ws,
 	}
 }
 
@@ -223,6 +226,15 @@ func (h *ShareHandler) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.DownloadLimit != 0 && s.DownloadLimit == s.DownloadCount {
+		response.Respond(w, response.Response{
+			Status:  http.StatusGone,
+			Message: "gone",
+		})
+
+		return
+	}
+
 	requiredPinCode := false
 	if s.PinCode != nil {
 		requiredPinCode = true
@@ -243,11 +255,6 @@ func (h *ShareHandler) Show(w http.ResponseWriter, r *http.Request) {
 		requiredPinCode = false
 	}
 
-	user, err := users.Get(log, s.UserID)
-	if err != nil {
-		log.Error("failed to get user", slog.Any("err", err))
-	}
-
 	if requiredPinCode {
 		result := _struct.PinResult{
 			Uuid:      s.Uuid,
@@ -260,13 +267,9 @@ func (h *ShareHandler) Show(w http.ResponseWriter, r *http.Request) {
 			Data:   result,
 		})
 	} else {
-		if s.DownloadLimit != 0 && s.DownloadLimit == s.DownloadCount {
-			response.Respond(w, response.Response{
-				Status:  http.StatusGone,
-				Message: "gone",
-			})
-
-			return
+		user, err := users.Get(log, s.UserID)
+		if err != nil {
+			log.Error("failed to get user", slog.Any("err", err))
 		}
 
 		file, err := h.fs.FindByID(r.Context(), s.FileID)
@@ -281,31 +284,39 @@ func (h *ShareHandler) Show(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = h.hs.UpdateDownloadCount(s)
-		if err != nil {
-			h.log.Error("failed to update download count", err)
-		}
-
 		if s.Type == enum.BurnType {
 			ws.SendEvent(h.ws, ws.Socket{
-				Channel: fmt.Sprintf("files.%s", user.Uuid),
+				Channel: fmt.Sprintf("explorer.%s", user.Uuid),
 				Event:   "send:share:burned",
-				Data: map[string]any{
+				Data: map[string]string{
 					"uuid": s.Uuid,
 				},
 			})
 		}
 
+		err = h.hs.UpdateDownloadCount(s)
+		if err != nil {
+			h.log.Error("failed to update download count", err)
+		}
+
 		if s.Type == enum.DownloadsLimitType {
-			if s.DownloadLimit == s.DownloadCount {
-				ws.SendEvent(h.ws, ws.Socket{
-					Channel: fmt.Sprintf("files.%s", user.Uuid),
-					Event:   "send:share:reached_limit",
-					Data: map[string]any{
-						"uuid": s.Uuid,
-					},
-				})
-			}
+			ws.SendEvent(h.ws, ws.Socket{
+				Channel: fmt.Sprintf("explorer.%s", user.Uuid),
+				Event:   "send:share:opened",
+				Data: map[string]string{
+					"uuid": s.Uuid,
+				},
+			})
+		}
+
+		if s.DownloadLimit != 0 && s.DownloadCount == s.DownloadLimit {
+			ws.SendEvent(h.ws, ws.Socket{
+				Channel: fmt.Sprintf("explorer.%s", user.Uuid),
+				Event:   "send:share:reached_limit",
+				Data: map[string]string{
+					"uuid": s.Uuid,
+				},
+			})
 		}
 
 		response.Respond(w, response.Response{
@@ -330,35 +341,46 @@ func (h *ShareHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShareHandler) Download(w http.ResponseWriter, r *http.Request) {
-	const op = "ShareHandler.Download"
+	const op = "FileHandler.Download"
 
 	log := h.log.With(
 		slog.String("op", op),
 	)
 
-	s, err := h.hs.FindByUUID(chi.URLParam(r, "uuid"))
+	file, err := h.fs.FindByUUID(r.Context(), chi.URLParam(r, "uuid"))
 	if err != nil {
-		log.Error("failed to find share", err)
+		log.Error("failed to find file by uuid", slog.Any("err", err))
 
 		response.Respond(w, response.Response{
-			Status:  http.StatusNotFound,
-			Message: "not found",
+			Status: http.StatusNotFound,
 		})
 
 		return
 	}
 
-	file, err := h.fs.FindByID(r.Context(), s.FileID)
+	path := fmt.Sprintf("%s/%s/%s", os.Getenv("SRV_PATH"), file.Path, file.Hash)
+
+	f, err := os.Open(path)
 	if err != nil {
-		log.Error("failed to find file", err)
-
-		response.Respond(w, response.Response{
-			Status:  http.StatusNotFound,
-			Message: "not found",
-		})
-
+		log.Error("failed to open video file", slog.Any("err", err))
+		http.Error(w, fmt.Sprintf("Error opening video file: %s", err), http.StatusInternalServerError)
 		return
 	}
 
-	http.ServeFile(w, r, file.Path)
+	defer f.Close()
+
+	if file.IsVideo() {
+		w.Header().Set("Content-Type", file.Type)
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size))
+		w.Header().Set("Accept-Ranges", "bytes")
+
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			log.Error("failed to seek file", slog.Any("err", err))
+			http.Error(w, fmt.Sprintf("Error seeking video file: %s", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.ServeContent(w, r, file.Name, *file.UpdatedAt, f)
 }

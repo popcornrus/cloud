@@ -3,6 +3,7 @@
     import { Share } from "$lib/classes/Share";
     import { authToken } from "$lib/stores/token";
     import moment from "moment";
+    import {wss} from "$lib/stores/websocket.js";
 
     export let modalOpen = false,
         file = null;
@@ -33,6 +34,17 @@
         }
 
         sharingType = share.type.toString();
+
+        $wss.addEventListener("message", async (e) => {
+            let data = JSON.parse(e.data);
+            const shareModal = document.getElementById('share-modal')
+
+            if (["share:burned", "share:reached_limit", "share:opened"].includes(data.event)) {
+                if (shareModal && share.uuid === data.data.uuid) {
+                    share = await shareAction.get();
+                }
+            }
+        })
     });
 
     $: {
@@ -91,6 +103,11 @@
                 </button>
             </div>
             <div class="p-4 overflow-y-auto">
+                <div class="mb-2">
+                    <span class="inline-flex w-full justify-center items-center gap-x-1.5 py-1.5 px-3 rounded-lg text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800/30 dark:text-blue-500">
+                        Openings at the moment: {share.downloadCount ?? 0}
+                    </span>
+                </div>
                 <div class="flex justify-between items-center mb-4">
                     <div class="flex items-center h-12">
                         <label class="relative inline-flex items-center cursor-pointer h-max">
@@ -119,18 +136,20 @@
                     </div>
 
                     {#if parseInt(sharingType) === 2}
-                        <div class="bg-white border border-gray-200 rounded-lg dark:bg-slate-700 dark:border-gray-700 mb-2">
-                            <div class="w-full flex justify-between items-center gap-x-1">
-                                <div class="grow py-2 px-3">
-                                    <input class="focus:outline-none w-full p-0 bg-transparent border-0 text-gray-800 focus:ring-0 dark:text-white" min="1" type="text" bind:value="{share.downloadLimit}">
-                                </div>
-                                <div class="flex items-center -gap-y-px divide-x divide-gray-200 border-s border-gray-200 dark:divide-gray-700 dark:border-gray-700">
-                                    <button on:click={() => share.downloadLimit > 1 ? share.downloadLimit-- : 0 } type="button" class="w-10 h-10 inline-flex justify-center items-center gap-x-2 text-sm font-medium last:rounded-e-lg bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:text-white dark:hover:bg-gray-800 dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
-                                        <svg class="flex-shrink-0 w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
-                                    </button>
-                                    <button on:click={() => share.downloadLimit++} type="button" class="w-10 h-10 inline-flex justify-center items-center gap-x-2 text-sm font-medium last:rounded-e-lg bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:text-white dark:hover:bg-gray-800 dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
-                                        <svg class="flex-shrink-0 w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                    </button>
+                        <div class="mb-2">
+                            <div class="bg-white border border-gray-200 rounded-lg dark:bg-slate-700 dark:border-gray-700">
+                                <div class="w-full flex justify-between items-center gap-x-1">
+                                    <div class="grow py-2 px-3">
+                                        <input class="focus:outline-none w-full p-0 bg-transparent border-0 text-gray-800 focus:ring-0 dark:text-white" min="1" type="text" bind:value="{share.downloadLimit}">
+                                    </div>
+                                    <div class="flex items-center -gap-y-px divide-x divide-gray-200 border-s border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                                        <button on:click={() => share.downloadLimit > 1 ? share.downloadLimit-- : 0 } type="button" class="w-10 h-10 inline-flex justify-center items-center gap-x-2 text-sm font-medium last:rounded-e-lg bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:text-white dark:hover:bg-gray-800 dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
+                                            <svg class="flex-shrink-0 w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
+                                        </button>
+                                        <button on:click={() => share.downloadLimit++} type="button" class="w-10 h-10 inline-flex justify-center items-center gap-x-2 text-sm font-medium last:rounded-e-lg bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:text-white dark:hover:bg-gray-800 dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
+                                            <svg class="flex-shrink-0 w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

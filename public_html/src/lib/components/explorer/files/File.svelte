@@ -1,14 +1,14 @@
 <script>
     import Image from "$lib/components/Image.svelte";
     import {env} from "$env/dynamic/public";
+    import {wss} from "$lib/stores/websocket.js";
 
     import { ShareModal } from "$lib/classes/Share.js";
 
     import CollectingSVG from "$lib/assets/collecting.svg";
 
     export let file = null,
-        checked = false,
-        wss = null;
+        checked = false;
 
     const preview = async () => {
         const {default: Preview} = await import('$lib/components/explorer/files/Preview.svelte');
@@ -22,8 +22,8 @@
         })
     }
 
-    $: if (wss !== null) {
-        wss.addEventListener('message', (e) => {
+    $: if ($wss !== null) {
+        $wss.addEventListener('message', (e) => {
             if (e.data.indexOf(file.uuid) === -1) {
                 return;
             }

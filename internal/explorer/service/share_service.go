@@ -1,7 +1,6 @@
 package service
 
 import (
-	"cloud/external/ws"
 	"cloud/grpc/users"
 	"cloud/internal/explorer/http/request/share"
 	"cloud/internal/explorer/model"
@@ -33,13 +32,11 @@ func NewShareService(
 	log *slog.Logger,
 	sr repository.ShareRepositoryInterface,
 	cache *cache.Cache,
-	ws *ws.WebSocketClient,
 ) *ShareService {
 	return &ShareService{
 		log:   log,
 		sr:    sr,
 		cache: cache,
-		ws:    ws,
 	}
 }
 
@@ -148,6 +145,8 @@ func (s *ShareService) UpdateDownloadCount(share *model.Share) error {
 	log := s.log.With(
 		slog.String("op", op),
 	)
+
+	share.DownloadCount++
 
 	err := s.sr.UpdateDownloadCount(share.Uuid)
 	if err != nil {

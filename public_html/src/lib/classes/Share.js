@@ -31,6 +31,7 @@ export class Share {
             pinCode: null,
             expiresAt: null,
             downloadLimit: null,
+            downloadCount: null,
         }
     }
 
@@ -43,6 +44,7 @@ export class Share {
             this.share.pinCode = data.data.pin_code ?? null;
             this.share.expiresAt = data.data.expires_at ?? null;
             this.share.downloadLimit = data.data.download_limit ?? null;
+            this.share.downloadCount = data.data.download_count ?? null;
         })
 
         return this.share;

@@ -7,7 +7,7 @@ import {Toast} from "$lib/classes/Toast.js";
 export class User {
     constructor(token) {
         this.axios = axios.create({
-            baseURL: `${env.PUBLIC_BACKEND_URL}/api/v1/users`,
+            baseURL: `${env.PUBLIC_BACKEND_URL_API}/users`,
             headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json'

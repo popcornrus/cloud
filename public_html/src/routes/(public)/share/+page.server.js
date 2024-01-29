@@ -8,7 +8,7 @@ export const actions = {
 
         let hashPin = await data.get('pinCode').Hash256()
 
-        return await axios.get(`${env.PUBLIC_BACKEND_URL}/api/v1/explorer/share/${data.get('shareId')}/${hashPin.slice(0, 32)}`)
+        return await axios.get(`${env.PUBLIC_BACKEND_URL}/explorer/share/${data.get('shareId')}/${hashPin.slice(0, 32)}`)
             .then(res => {
                 return JSON.stringify(res.data.data)
             })

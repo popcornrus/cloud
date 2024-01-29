@@ -4,6 +4,8 @@
     import Image from "$lib/components/Image.svelte";
     import {authToken} from "$lib/stores/token.js";
     import { afterNavigate } from "$app/navigation";
+    import {WebSocketClient} from "$lib/classes/WebSocketClient.js";
+    import {user} from "$lib/stores/user.js";
 
     let userData = null;
 
@@ -12,6 +14,7 @@
     });
 
     onMount(() => {
+        new WebSocketClient($user)
 
         if ($authToken === null) {
             window.location.href = '/auth/sign-in';

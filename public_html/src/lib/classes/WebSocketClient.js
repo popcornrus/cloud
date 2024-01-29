@@ -1,4 +1,5 @@
 import {env} from "$env/dynamic/public";
+import {wss} from "$lib/stores/websocket.js";
 
 export class WebSocketClient {
     constructor(user) {
@@ -13,7 +14,7 @@ export class WebSocketClient {
 
         socket.onopen = (e) => {
             socket.send(JSON.stringify({
-                channel: "files." + this.user.uuid,
+                channel: "explorer." + this.user.uuid,
                 event: "action:subscribe",
                 data: {}
             }))
@@ -31,6 +32,6 @@ export class WebSocketClient {
             console.log(`[error] ${error.message}`);
         };
 
-        return socket
+        wss.set(socket);
     }
 }

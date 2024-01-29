@@ -240,7 +240,7 @@ func (fs *FileService) Prepare(ctx context.Context, req files.PrepareRequest) (*
 	fs.cache.Set(fmt.Sprintf("file-%s", file.UUID), file, 5*time.Minute)
 
 	ws.SendEvent(fs.ws, ws.Socket{
-		Channel: fmt.Sprintf("files.%s", user.Uuid),
+		Channel: fmt.Sprintf("explorer.%s", user.Uuid),
 		Event:   "send:file:created",
 		Data: map[string]any{
 			"uuid":  file.UUID,
@@ -308,7 +308,7 @@ func (fs *FileService) Upload(
 
 		user := ctx.Value("user").(*users.AuthorizeUserResponse)
 		ws.SendEvent(fs.ws, ws.Socket{
-			Channel: fmt.Sprintf("files.%s", user.Uuid),
+			Channel: fmt.Sprintf("explorer.%s", user.Uuid),
 			Event:   "send:file:update",
 			Data: map[string]any{
 				"uuid":  file.UUID,
@@ -489,7 +489,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 			}
 
 			ws.SendEvent(fs.ws, ws.Socket{
-				Channel: fmt.Sprintf("files.%s", user.Uuid),
+				Channel: fmt.Sprintf("explorer.%s", user.Uuid),
 				Event:   "send:file:update",
 				Data: map[string]any{
 					"uuid":  file.UUID,
@@ -511,7 +511,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 			}
 
 			ws.SendEvent(fs.ws, ws.Socket{
-				Channel: fmt.Sprintf("files.%s", user.Uuid),
+				Channel: fmt.Sprintf("explorer.%s", user.Uuid),
 				Event:   "send:file:update",
 				Data: map[string]any{
 					"uuid":  file.UUID,
@@ -528,7 +528,7 @@ func (fs *FileService) CollectFile(ctx context.Context, file *model.File) error 
 		}
 
 		ws.SendEvent(fs.ws, ws.Socket{
-			Channel: fmt.Sprintf("files.%s", user.Uuid),
+			Channel: fmt.Sprintf("explorer.%s", user.Uuid),
 			Event:   "send:file:update",
 			Data: map[string]any{
 				"uuid":  file.UUID,
@@ -566,7 +566,7 @@ func (fs *FileService) CreatePreview(ctx context.Context, file *model.File) (*st
 
 	user := ctx.Value("user").(*users.AuthorizeUserResponse)
 	ws.SendEvent(fs.ws, ws.Socket{
-		Channel: fmt.Sprintf("files.%s", user.Uuid),
+		Channel: fmt.Sprintf("explorer.%s", user.Uuid),
 		Event:   "send:file:preview",
 		Data: map[string]any{
 			"uuid": file.UUID,

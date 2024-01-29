@@ -4,7 +4,7 @@
     import Plyr from 'plyr';
     import "plyr/dist/plyr.css";
     import axios from "axios";
-    import {Toast} from "$lib";
+    import {Toast} from "$lib/classes/Toast.js";
 
     export let file = null,
         modalOpen = false;
@@ -14,7 +14,7 @@
         bytesProgress = 0;
 
     const download = async () => {
-        const streamUrl = `${env.PUBLIC_BACKEND_URL}/api/v1/explorer/share/${file?.uuid}/download`;
+        const streamUrl = `${env.PUBLIC_BACKEND_URL}/explorer/share/${file?.uuid}/download`;
 
         const supportsFileSystemAccess =
             "showSaveFilePicker" in window &&
@@ -119,10 +119,10 @@
             </div>
             <div class="p-4 overflow-y-auto">
                 {#if file?.type.IsImage()}
-                    <Image src="{env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/{file?.uuid}" alt="{file?.name}"/>
+                    <Image src="{env.PUBLIC_BACKEND_URL}/explorer/files/{file?.uuid}" alt="{file?.name}"/>
                 {:else if file?.type.IsVideo()}
-                    <video src="{env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/{file?.uuid}" id="player">
-                        <track kind="captions" src="{env.PUBLIC_BACKEND_URL}/api/v1/explorer/files/{file?.uuid}">
+                    <video src="{env.PUBLIC_BACKEND_URL}/explorer/files/{file?.uuid}" id="player">
+                        <track kind="captions" src="{env.PUBLIC_BACKEND_URL}/explorer/files/{file?.uuid}">
                     </video>
                 {:else}
                     <div class="flex justify-center items-center w-full h-full p-24">

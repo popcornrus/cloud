@@ -1,6 +1,5 @@
 <script>
     import {onMount} from "svelte";
-    import Toast from "$lib/components/Toast.svelte";
     import {User} from "$lib/classes/User.js";
 
     let formInProcess = false;
